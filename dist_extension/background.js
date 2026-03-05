@@ -6,6 +6,16 @@ const gemini = new GeminiClient();
 // Force side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
+// Force Injection Logic: Ensure content script is always running on TikTok tabs
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.url?.includes('tiktok.com')) {
+        chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ['content.js']
+        }).catch(err => console.log('Script already injected or error:', err));
+    }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "GENERATE_WAVES") {
         const niche = message.niche || "Main Character";

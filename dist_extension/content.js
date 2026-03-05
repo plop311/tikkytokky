@@ -5,6 +5,9 @@ console.log("[tikkytokky] Content script active on TikTok");
 let warmUpInterval = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "PING") {
+        sendResponse({ status: "ALIVE" });
+    }
     if (message.type === "AUTOMATE_REPLY") {
         handleAutomatedReply(message.text);
     }
@@ -26,8 +29,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function handleWarmUp(enabled) {
     if (!enabled) {
         console.log("[tikkytokky] Stealth Warm-Up deactivated.");
-        if (warmUpInterval) clearInterval(warmUpInterval);
-        warmUpInterval = null;
+        if (warmUpInterval) {
+            clearTimeout(warmUpInterval);
+            warmUpInterval = null;
+        }
         return;
     }
 

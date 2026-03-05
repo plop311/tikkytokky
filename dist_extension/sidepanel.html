@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tikkytokky sidePanel</title>
+    <link rel="stylesheet" href="sidepanel.css">
+    <style>
+        #key-settings-panel {
+            background: rgba(112, 0, 255, 0.1);
+            border: 1px solid var(--primary-cyan);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .settings-toggle-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        #debug-logger {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: monospace;
+            height: 80px;
+            overflow-y: scroll;
+            border-top: 1px solid #333;
+            padding: 10px;
+            font-size: 10px;
+        }
+        .debug-label {
+            background: #333;
+            color: #aaa;
+            font-size: 8px;
+            padding: 2px 5px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-toggle-btn" id="toggle-settings-ui">⚙️</div>
+
+    <div class="glass-container">
+        <header>
+            <h1 class="logo">tikky<span>tokky</span></h1>
+            <div class="status-bar">
+                <span id="ai-status">AI: Online</span>
+                <span id="key-status">Keys: 0</span>
+            </div>
+        </header>
+
+        <!-- Persistent Key Settings Panel -->
+        <div id="key-settings-panel">
+            <h3>🔑 Gemini API Key Pool</h3>
+            <textarea id="api-keys-input" placeholder="Paste keys here (one per line)"></textarea>
+            <button id="save-keys" class="action-btn">Save Keys</button>
+        </div>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="waves">Waves</button>
+            <button class="tab-btn" data-tab="vault">Vault</button>
+            <button class="tab-btn" data-tab="social">Social</button>
+            <button class="tab-btn" data-tab="transform">Transform</button>
+            <button class="tab-btn" data-tab="settings">Config</button>
+        </nav>
+
+        <main class="content-area">
+            <!-- Waves Tab -->
+            <section id="waves" class="tab-content active">
+                <h2>Viral Waves</h2>
+                <button id="refresh-waves" class="action-btn">Refresh Trends</button>
+
+                <div class="glass-card" style="margin-top: 16px;">
+                    <h3>Stealth Warm-Up</h3>
+                    <div class="toggle-row">
+                        <span>Activate Ghost Scroller</span>
+                        <input type="checkbox" id="warm-up-toggle">
+                    </div>
+                </div>
+
+                <div id="waves-list" class="list-container">
+                    <p class="empty-msg">No waves detected. Tap refresh.</p>
+                </div>
+            </section>
+
+            <!-- Vault Tab -->
+            <section id="vault" class="tab-content">
+                <h2>Project Vault</h2>
+                <div id="vault-list" class="list-container">
+                    <p class="empty-msg">No projects yet.</p>
+                </div>
+            </section>
+
+            <!-- Social Tab -->
+            <section id="social" class="tab-content">
+                <h2>Niche Intelligence</h2>
+                <div class="glass-card">
+                    <h3>Hashtag Shotgun</h3>
+                    <button id="shotgun-btn" class="action-btn neon-magenta">Shotgun Hashtags</button>
+                    <p id="shotgun-feedback" class="feedback"></p>
+                </div>
+                <div class="glass-card">
+                    <h3>Active Persona</h3>
+                    <div class="toggle-row">
+                        <span>Stealth Mode</span>
+                        <input type="checkbox" id="stealth-toggle">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transform Tab -->
+            <section id="transform" class="tab-content">
+                <h2>Video Transformation</h2>
+                <div class="glass-card">
+                    <p>Bitstream Randomization (WASM Engine)</p>
+                    <button id="transform-btn" class="action-btn neon-cyan">Initialize Engine</button>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="settings" class="tab-content">
+                <h2>AI Customization</h2>
+                <div class="glass-card">
+                    <select id="persona-select">
+                        <option value="Trend Analyst">Trend Analyst</option>
+                        <option value="Creative Director">Creative Director</option>
+                        <option value="Nostalgia Growth Hacker">Nostalgia Growth Hacker</option>
+                    </select>
+                </div>
+            </section>
+        </main>
+
+        <div class="debug-label">SYSTEM LOGS</div>
+        <div id="debug-logger"></div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>

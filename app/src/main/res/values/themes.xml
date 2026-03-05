@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.Tikkytokky" parent="Theme.MaterialComponents.Light" />
+</resources>

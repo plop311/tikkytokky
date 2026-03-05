@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Vault/Frame Shape -->
+    <path
+        android:pathData="M24,24 L84,24 L84,84 L24,84 Z"
+        android:strokeWidth="1"
+        android:strokeColor="#33FFFFFF" />
+
+    <!-- AI Wave Path -->
+    <path
+        android:pathData="M20,60 Q35,40 54,60 T88,60"
+        android:strokeWidth="4"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="20"
+                android:startY="60"
+                android:endX="88"
+                android:endY="60"
+                android:type="linear">
+                <item android:offset="0" android:color="#00F0FF" />
+                <item android:offset="1" android:color="#FF00E5" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Automation Play Symbol -->
+    <path
+        android:pathData="M45,40 L65,54 L45,68 Z"
+        android:fillType="evenOdd">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="45"
+                android:startY="54"
+                android:endX="65"
+                android:endY="54"
+                android:type="linear">
+                <item android:offset="0" android:color="#00F0FF" />
+                <item android:offset="1" android:color="#FF00E5" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

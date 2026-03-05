@@ -1,6 +1,5 @@
 // content.js - DOM Interactions for TikTok automation
-
-console.log("[tikkytokky] Content script active on TikTok");
+console.log("[VE] Content Script Injected into TikTok");
 
 let warmUpInterval = null;
 

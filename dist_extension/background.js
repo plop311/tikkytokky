@@ -6,13 +6,22 @@ const gemini = new GeminiClient();
 // Force side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
-// Force Injection Logic: Ensure content script is always running on TikTok tabs
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url?.includes('tiktok.com')) {
+// Log when a TikTok tab is detected
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+    if (info.status === 'complete' && tab.url?.includes('tiktok.com')) {
+      console.log('TikTok detected, bridge active.');
+    }
+ });
+
+// Manual Override: Force inject content script when extension icon is clicked
+chrome.action.onClicked.addListener((tab) => {
+    if (tab.url?.includes("tiktok.com")) {
         chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['content.js']
-        }).catch(err => console.log('Script already injected or error:', err));
+            target: { tabId: tab.id },
+            files: ["content.js"]
+        }).then(() => {
+            console.log("[VE] Manual override: Content script injected.");
+        }).catch(err => console.error("[VE] Manual injection failed:", err));
     }
 });
 

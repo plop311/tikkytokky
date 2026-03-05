@@ -4,14 +4,14 @@
   "version": "1.0",
   "description": "High-velocity TikTok Shorts automation platform.",
   "permissions": [
-    "sidePanel",
     "storage",
     "tabs",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "sidePanel"
   ],
   "host_permissions": [
-    "https://www.tiktok.com/*",
+    "*://*.tiktok.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://api.google.com/*"
   ],
@@ -33,12 +33,13 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.tiktok.com/*"
+        "*://*.tiktok.com/*"
       ],
       "js": [
         "content.js"
       ],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [

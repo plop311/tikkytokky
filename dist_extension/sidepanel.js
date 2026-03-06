@@ -10,6 +10,17 @@ function obfuscate(input) {
     return btoa(xorResult);
 }
 
+function deobfuscate(input) {
+    try {
+        const decoded = atob(input);
+        let result = "";
+        for (let i = 0; i < decoded.length; i++) {
+            result += String.fromCharCode(decoded.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+        }
+        return result;
+    } catch (e) { return "DEOBF_ERROR"; }
+}
+
 /**
  * Appends a message to the debug logger.
  */
@@ -67,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initWarmUpToggle();
     updateStatusBar();
-    refreshKeyList();
+    renderKeyList();
 
     // 5. Listen for storage changes
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -76,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateStatusBar();
             }
             if (changes.apiKeys) {
-                refreshKeyList();
+                renderKeyList();
             }
         }
     });
@@ -114,12 +125,66 @@ async function checkEngineHealth() {
     });
 }
 
+/**
+ * THE NAME PURGE: geminiResponseString used to avoid shadowing issues.
+ */
+async function refreshTrends() {
+    const list = document.getElementById("waves-list");
+    list.innerHTML = '<div class="loader">Analyzing #MainCharacter Trends...</div>';
+
+    try {
+        log("📡 Calling Gemini 3 Flash v1beta...");
+
+        chrome.runtime.sendMessage({ type: "GENERATE_WAVES", niche: "Main Character" }, (response) => {
+            try {
+                if (!response || !response.success) {
+                    log(`ERROR: ${response ? response.error : 'Empty response from background.'}`, true);
+                    return;
+                }
+
+                log("📦 RAW RESPONSE TYPE: " + typeof response.data);
+                log("🔍 FULL DATA DUMP: " + JSON.stringify(response.data).substring(0, 200));
+
+                // THE ULTIMATE v1beta HANDLER
+                // Deep navigation with defaults
+                const candidates = response.data?.candidates || [];
+                const part = candidates[0]?.content?.parts?.[0] || {};
+
+                // FORCE TO STRING: This is the ONLY place we use .replace()
+                let geminiResponseString = part.text ? String(part.text) : JSON.stringify(part);
+
+                if (!geminiResponseString || geminiResponseString === "{}") {
+                    throw new Error("Gemini returned empty or malformed data.");
+                }
+
+                log("🔍 Raw data captured. Sanitizing JSON...");
+
+                const cleanJson = geminiResponseString.replace(/```json|```/g, "").trim();
+
+                log("📝 Cleaned JSON: " + cleanJson.substring(0, 50) + "...");
+                const trends = JSON.parse(cleanJson);
+
+                renderTrendCards(trends);
+                log("✅ Waves Updated Successfully.");
+
+            } catch (err) {
+                log("🚨 CRITICAL ERROR (Callback): " + err.message, true);
+                console.error(err);
+            }
+        });
+
+    } catch (err) {
+        log("🚨 CRITICAL ERROR (Async): " + err.message, true);
+        console.error(err);
+    }
+}
+
 async function saveKeys() {
     const keyInput = document.getElementById('key-input');
-    const text = keyInput.value.trim();
-    if (!text) return;
+    const textValue = keyInput.value.trim();
+    if (!textValue) return;
 
-    const newKeys = text.split("\n").map(k => k.trim()).filter(k => k);
+    const newKeys = textValue.split("\n").map(k => k.trim()).filter(k => k);
     if (newKeys.length === 0) return;
 
     log(`[STORAGE] Adding ${newKeys.length} new keys.`);
@@ -141,7 +206,7 @@ async function saveKeys() {
     });
 }
 
-function refreshKeyList() {
+function renderKeyList() {
     const keyList = document.getElementById('key-list');
     if (!keyList) return;
 
@@ -152,21 +217,26 @@ function refreshKeyList() {
             keyList.innerHTML += "No keys in pool.";
         } else {
             keys.forEach((k, index) => {
-                const raw = deobfuscate(k.encryptedKey);
-                const masked = raw.substring(0, 4) + "****" + raw.substring(raw.length - 4);
-                keyList.innerHTML += `<div>${index + 1}: ${masked} ${k.isLimited ? '(Limited)' : ''}</div>`;
+                const rawKey = deobfuscate(k.encryptedKey);
+                const masked = rawKey.substring(0, 4) + "****" + rawKey.substring(rawKey.length - 4);
+                keyList.innerHTML += `<div style="display:flex;justify-content:space-between;font-size:10px;">
+                    <span>${index + 1}: ${masked} ${k.isLimited ? '(Limited)' : ''}</span>
+                    <button class="delete-btn" data-index="${index}" style="padding:0 2px;background:red;color:white;border:none;cursor:pointer;">DEL</button>
+                </div>`;
             });
         }
     });
 }
 
-function deobfuscate(input) {
-    const decoded = atob(input);
-    let result = "";
-    for (let i = 0; i < decoded.length; i++) {
-        result += String.fromCharCode(decoded.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+async function handleKeyListActions(e) {
+    if (e.target.classList.contains('delete-btn')) {
+        const index = parseInt(e.target.dataset.index);
+        const res = await chrome.storage.local.get(['apiKeys']);
+        let keys = res.apiKeys || [];
+        keys.splice(index, 1);
+        await chrome.storage.local.set({ apiKeys: keys });
+        log("Key Deleted.");
     }
-    return result;
 }
 
 function initTabs() {
@@ -203,65 +273,12 @@ function initWarmUpToggle() {
     }
 }
 
-async function refreshTrends() {
-    try {
-        log("📡 Requesting Waves from Gemini 3 Flash...");
-
-        chrome.runtime.sendMessage({ type: "GENERATE_WAVES", niche: "Main Character" }, (response) => {
-            try {
-                if (!response || !response.success) {
-                    log(`ERROR: ${response ? response.error : 'Empty response from background.'}`, true);
-                    return;
-                }
-
-                log("📦 RAW RESPONSE TYPE: " + typeof response.data);
-                log("🔍 FULL DATA DUMP: " + JSON.stringify(response.data).substring(0, 200));
-
-                // 1. DATA EXTRACTION (The v1beta Way)
-                // response.data contains the Gemini result with candidates
-                const part = response.data.candidates?.[0]?.content?.parts?.[0];
-
-                // 2. THE BULLETPROOF STRING FIX
-                // We force it into a string before touching it with .replace()
-                let rawContent = "";
-                if (part && part.text) {
-                    rawContent = String(part.text);
-                } else if (part) {
-                    rawContent = JSON.stringify(part);
-                } else {
-                    rawContent = JSON.stringify(response.data);
-                }
-
-                log("🔍 Raw data captured. Sanitizing JSON...");
-
-                // 3. THE REPLACEMENT (Safe now because rawContent is 100% a string)
-                const cleanJson = rawContent.replace(/```json|```/g, "").trim();
-
-                log("📝 Cleaned JSON: " + cleanJson.substring(0, 50) + "...");
-                const trends = JSON.parse(cleanJson);
-
-                // 4. UI RENDER
-                renderWaves(trends);
-                log("✅ Waves Updated Successfully.");
-
-            } catch (err) {
-                log("🚨 CRITICAL ERROR (Callback): " + err.message, true);
-                console.error(err);
-            }
-        });
-
-    } catch (err) {
-        log("🚨 CRITICAL ERROR (Async): " + err.message, true);
-        console.error(err);
-    }
-}
-
-function renderWaves(waves) {
+function renderTrendCards(trends) {
     const list = document.getElementById("waves-list");
     if (!list) return;
     list.innerHTML = "";
-    log(`Rendering ${waves.length} viral waves.`);
-    waves.forEach(wave => {
+    log(`Rendering ${trends.length} viral waves.`);
+    trends.forEach(wave => {
         const card = document.createElement("div");
         card.className = "glass-card";
         card.innerHTML = `

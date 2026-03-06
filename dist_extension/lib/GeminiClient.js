@@ -51,6 +51,10 @@ export class GeminiClient {
         await chrome.storage.local.set({ apiKeys: updatedKeys });
     }
 
+    /**
+     * THE REPLACEMENT LOGIC (GeminiClient.js):
+     * Returns the RAW response object. No parsing here.
+     */
     async generateContent(prompt) {
         const apiKey = await this.getNextKey();
         if (!apiKey) throw new Error("No API keys available. Please add them in Settings.");
@@ -78,18 +82,14 @@ export class GeminiClient {
             throw new Error("Received empty response from Gemini API.");
         }
 
+        // Return the RAW object
         return JSON.parse(rawResponse);
     }
 
-    async generateHook() {
-        const prompt = `Generate a relatable, aesthetic hook for the #MainCharacter niche.
-        Tone: Respectful Admiration.
-        Focus: The 'Vibe' (lighting, mood, setting) rather than the individual.
-        Format: One short sentence.`;
-        const result = await this.generateContent(prompt);
-
-        const parts = result.candidates?.[0]?.content?.parts || [];
-        const textPart = parts.find(p => !p.thought) || parts[parts.length - 1];
-        return (textPart?.text || "").replace(/```json|```/g, "").trim();
+    async generateTrends() {
+        const prompt = `Analyze high-velocity TikTok trends for the #MainCharacter niche.
+        Return raw JSON array of 3-5 objects with trendName, viralScore (1-100), and description.
+        Ensure hooks are relatable and aesthetic.`;
+        return this.generateContent(prompt);
     }
 }

@@ -46,12 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bind('shotgun-hashtags', shotgunHashtags);
     bind('init-engine', initializeEngine);
     bind('transform-video', () => log("WASM Transformation Sequence Standby."));
-    bind('human-comment', executeHumanComment); // NEW ACTION
     bind('save-keys', saveKeys);
+    bind('human-comment', executeHumanComment);
 
     bind('settings-gear', () => {
         const m = document.getElementById('settings-menu');
-        if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+        if (m) m.style.display = (m.style.display === 'none') ? 'block' : 'none';
     });
 
     const warmUpToggle = document.getElementById("warm-up-toggle");
@@ -60,9 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const state = warmUpToggle.checked;
             log(`[HUMAN] Warm-up Emulation: ${state ? 'ENABLED' : 'DISABLED'}`);
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_WARM_UP", enabled: state });
-                }
+                if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_WARM_UP", enabled: state });
             });
         };
     }
@@ -77,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- CORE FUNCTIONS ---
-
 function switchTab(target) {
     document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
     const active = document.getElementById(target);
@@ -92,14 +89,26 @@ async function refreshTrends() {
     log("Requesting #MainCharacter Waves...");
     chrome.runtime.sendMessage({ type: "GENERATE_WAVES" }, (res) => {
         if (!res || !res.success) return log(`CRASH: ${res?.error || 'Empty Response'}`, true);
+
         try {
             const raw = res.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            // SAVAGE PARSER: Find the first [ and the last ]
             const start = raw.indexOf('[');
             const end = raw.lastIndexOf(']') + 1;
+
+            if (start === -1 || end === 0) {
+                log("Raw output detected without JSON block.", true);
+                console.log("RAW OUTPUT:", raw);
+                return;
+            }
+
             const trends = JSON.parse(raw.substring(start, end));
             renderTrendCards(trends);
             log(`Success: Found ${trends.length} viral leads.`);
-        } catch (e) { log(`Parser Error. Check raw output.`, true); }
+        } catch (e) {
+            log(`Parser Crash: ${e.message}`, true);
+            console.error("PARSER ERROR DATA:", res.data);
+        }
     });
 }
 
@@ -110,7 +119,8 @@ function renderTrendCards(trends) {
     trends.forEach(t => {
         const card = document.createElement("div");
         card.className = "glass-card";
-        card.innerHTML = `<strong>${t.trendName} (${t.viralScore}%)</strong><p>${t.description}</p><button class="action-btn auto-btn" data-trend="${t.trendName}">AUTOMATE</button>`;
+        card.style.border = "1px solid #333; margin-bottom: 10px; padding: 10px; border-radius: 8px;";
+        card.innerHTML = `<strong>${t.trendName} (${t.viralScore}%)</strong><p style="font-size:10px; opacity:0.8;">${t.description}</p><button class="action-btn auto-btn" data-trend="${t.trendName}" style="background:#00f0ff; color:black; font-size:10px; padding:5px; border-radius:4px; margin-top:5px; border:none; width:100%;">AUTOMATE</button>`;
         list.appendChild(card);
     });
     document.querySelectorAll('.auto-btn').forEach(btn => {
@@ -188,12 +198,8 @@ function executeHumanComment() {
     log("🎯 Crafting Human Comment...");
     chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK" }, (res) => {
         if (res.success) {
-            log(`[HUMAN] Typing: "${res.hook}" at human speed...`);
-            chrome.runtime.sendMessage({
-                type: "EXECUTE_TYPO_TYPING",
-                text: res.hook,
-                targetId: "[contenteditable='true']" // TikTok comment box selector
-            });
+            log(`[HUMAN] Typing: "${res.hook}"...`);
+            chrome.runtime.sendMessage({ type: "EXECUTE_TYPO_TYPING", text: res.hook });
         }
     });
 }

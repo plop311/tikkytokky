@@ -6,220 +6,115 @@
     <title>tikkytokky sidePanel</title>
     <link rel="stylesheet" href="sidepanel.css">
     <style>
-        #key-settings-panel {
-            background: rgba(112, 0, 255, 0.1);
-            border: 1px solid var(--primary-cyan);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 16px;
-        }
-        .settings-toggle-btn {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
+        /* Fix for the "Hidden" Tabs - ensuring they take up full width */
+        .tabs {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 18px;
+            width: 100%;
+            justify-content: space-between;
+            background: #1a1a1a;
+            padding: 5px;
+        }
+        .tab-btn {
+            flex: 1;
+            font-size: 11px;
+            padding: 10px 2px;
+            margin: 0 2px;
+            white-space: nowrap;
+        }
+        /* Settings Overlay */
+        #settings-menu {
+            display: none;
+            background: #111;
+            border: 1px solid #7000ff;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 8px;
+        }
+        #key-input {
+            width: 100%;
+            height: 60px;
+            background: #000;
+            color: #00f0ff;
+            border: 1px solid #333;
+            font-family: monospace;
+            font-size: 10px;
+            margin-bottom: 8px;
         }
         #debug-logger {
-            background: #1a1a1a;
+            height: 100px;
+            background: #000;
             color: #00ff00;
             font-family: monospace;
-            height: 80px;
-            overflow-y: scroll;
-            border-top: 1px solid #333;
-            padding: 10px;
             font-size: 10px;
-        }
-        .debug-label {
-            background: #333;
-            color: #aaa;
-            font-size: 8px;
-            padding: 2px 5px;
-            text-transform: uppercase;
-        }
-        .btn-1 { background: #007bff !important; color: white; } /* Blue */
-        .btn-2 { background: #6f42c1 !important; color: white; } /* Purple */
-        .btn-3 { background: #ffc107 !important; color: black; } /* Yellow */
-        .btn-4 { background: #28a745 !important; color: white; } /* Green */
-        button {
-            margin: 10px 0;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: bold;
-            width: 100%;
-            border: none;
-            cursor: pointer;
-        }
-        .drunk-guide {
-            font-size: 9px;
-            color: #888;
-            font-style: italic;
-            margin-top: 2px;
-            display: block;
-            text-align: center;
-        }
-        .hidden { display: none !important; }
-        #key-list {
-            margin-top: 10px;
-            font-size: 10px;
-            color: var(--text-dim);
-            max-height: 60px;
             overflow-y: auto;
-        }
-        .vault-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-top: 16px;
-        }
-        .vault-item {
-            position: relative;
-            background: var(--glass-bg);
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--glass-border);
-        }
-        .vault-item img {
-            width: 100%;
-            height: 120px;
-            object-fit: cover;
-        }
-        .vault-status {
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            background: var(--primary-cyan);
-            color: black;
-            font-size: 8px;
-            font-weight: bold;
-            padding: 2px 4px;
-            border-radius: 4px;
-        }
-        .purge-btn {
-            width: 100%;
-            background: #ff4444 !important;
-            font-size: 9px;
-            padding: 4px;
-            margin: 0;
-            border-radius: 0;
+            border-top: 1px solid #333;
+            padding: 8px;
         }
     </style>
 </head>
 <body>
-    <div class="settings-toggle-btn" id="settings-gear">⚙️</div>
+<div class="settings-toggle-btn" id="settings-gear" style="cursor:pointer; position:fixed; top:10px; right:10px; z-index:100;">⚙️</div>
 
-    <div class="glass-container">
-        <header>
-            <h1 class="logo">tikky<span>tokky</span></h1>
-            <div class="status-bar">
-                <span id="ai-status">AI: Online</span>
-                <span id="key-status">Keys: 0</span>
-            </div>
-        </header>
-
-        <!-- Persistent Key Settings Panel -->
-        <div id="settings-menu" class="hidden">
-            <div id="key-settings-panel">
-                <h3>🔑 Gemini API Key Pool</h3>
-                <textarea id="key-input" placeholder="Paste keys here (one per line)"></textarea>
-                <button id="save-keys" class="action-btn btn-4">SAVE KEYS</button>
-                <div id="key-list"></div>
-            </div>
+<div class="glass-container">
+    <header style="padding: 10px;">
+        <h1 class="logo">tikky<span>tokky</span></h1>
+        <div class="status-bar" style="display:flex; justify-content:space-between; font-size:10px; opacity:0.6;">
+            <span id="ai-status">randomgirlirl: ACTIVE</span>
+            <span id="key-status">Keys: 0</span>
         </div>
+    </header>
 
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="waves">Waves</button>
-            <button class="tab-btn" data-tab="vault">Vault</button>
-            <button class="tab-btn" data-tab="social">Social</button>
-            <button class="tab-btn" data-tab="transform">Transform</button>
-            <button class="tab-btn" data-tab="settings">Config</button>
-        </nav>
-
-        <main class="content-area">
-            <!-- Waves Tab -->
-            <section id="waves" class="tab-content active">
-                <h2>Viral Waves</h2>
-                <button id="refresh-trends" class="btn-1">1 - REFRESH WAVES</button>
-                <small class="drunk-guide">Click this to find out what's viral right now.</small>
-
-                <div class="glass-card" style="margin-top: 16px;">
-                    <h3>Stealth Warm-Up</h3>
-                    <div class="toggle-row">
-                        <span>Activate Ghost Scroller</span>
-                        <input type="checkbox" id="warm-up-toggle">
-                    </div>
-                </div>
-
-                <div id="waves-list" class="list-container">
-                    <p class="empty-msg">No waves detected. Tap refresh.</p>
-                </div>
-            </section>
-
-            <!-- Vault Tab -->
-            <section id="vault" class="tab-content">
-                <h2>Project Vault</h2>
-                <div id="vault-list" class="vault-grid">
-                    <p class="empty-msg">No assets in vault. Automate a wave to begin.</p>
-                </div>
-            </section>
-
-            <!-- Social Tab -->
-            <section id="social" class="tab-content">
-                <h2>Niche Intelligence</h2>
-                <div class="glass-card">
-                    <h3>Hashtag Shotgun</h3>
-                    <button id="shotgun-hashtags" class="btn-2">2 - SHOTGUN HASHTAGS</button>
-                    <small class="drunk-guide">Copy a bunch of hashtags so the algorithm finds you.</small>
-                    <p id="shotgun-feedback" class="feedback"></p>
-                </div>
-                <div class="glass-card">
-                    <h3>Active Persona</h3>
-                    <div class="toggle-row">
-                        <span>Stealth Mode</span>
-                        <input type="checkbox" id="stealth-toggle">
-                    </div>
-                </div>
-            </section>
-
-            <!-- Transform Tab -->
-            <section id="transform" class="tab-content">
-                <h2>Video Transformation</h2>
-                <div class="glass-card">
-                    <p>Bitstream Randomization (WASM Engine)</p>
-                    <button id="init-engine" class="btn-3">3 - INITIALIZE ENGINE</button>
-                    <small class="drunk-guide">Wakes up the video engine. Do this once per session.</small>
-
-                    <button id="transform-video" class="btn-4">4 - TRANSFORM & POST</button>
-                    <small class="drunk-guide">Changes the pixels so TikTok thinks it's 100% original code.</small>
-                </div>
-            </section>
-
-            <!-- Settings Tab -->
-            <section id="settings" class="tab-content">
-                <h2>AI Customization</h2>
-                <div class="glass-card">
-                    <select id="persona-select">
-                        <option value="Trend Analyst">Trend Analyst</option>
-                        <option value="Creative Director">Creative Director</option>
-                        <option value="Nostalgia Growth Hacker">Nostalgia Growth Hacker</option>
-                    </select>
-                </div>
-            </section>
-        </main>
-
-        <div class="debug-label">SYSTEM LOGS</div>
-        <div id="debug-logger"></div>
+    <div id="settings-menu">
+        <h3 style="font-size:12px; color:#00f0ff;">Gemini API Keys</h3>
+        <textarea id="key-input" placeholder="Paste keys (one per line)"></textarea>
+        <button id="save-keys" class="btn-4" style="padding:5px; font-size:10px;">SAVE KEYS</button>
+        <div id="key-list" style="margin-top:10px; font-size:9px; color:#888;"></div>
     </div>
 
-    <script src="sidepanel.js"></script>
+    <nav class="tabs">
+        <button class="tab-btn active" data-tab="waves">Waves</button>
+        <button class="tab-btn" data-tab="vault">Vault</button>
+        <button class="tab-btn" data-tab="social">Social</button>
+        <button class="tab-btn" data-tab="transform">Engine</button>
+    </nav>
+
+    <main class="content-area" style="padding: 15px;">
+
+        <section id="waves" class="tab-content active">
+            <button id="refresh-trends" class="btn-1">1 - REFRESH WAVES</button>
+
+            <div class="glass-card" style="margin-top:15px; padding:10px; border:1px solid #333; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:11px;">Ghost Scroller</span>
+                    <input type="checkbox" id="warm-up-toggle">
+                </div>
+            </div>
+
+            <div id="waves-list" style="margin-top:15px;">
+                <p class="empty-msg" style="font-size:10px; opacity:0.5;">Scanning #MainCharacter lore...</p>
+            </div>
+        </section>
+
+        <section id="vault" class="tab-content" style="display:none;">
+            <div id="vault-list" class="vault-grid">
+            </div>
+        </section>
+
+        <section id="social" class="tab-content" style="display:none;">
+            <button id="shotgun-hashtags" class="btn-2">2 - SHOTGUN HOOK</button>
+            <button id="human-comment" class="btn-2" style="margin-top:10px;">5 - HUMAN COMMENT</button>
+        </section>
+
+        <section id="transform" class="tab-content" style="display:none;">
+            <button id="init-engine" class="btn-3">3 - INITIALIZE ENGINE</button>
+            <button id="transform-video" class="btn-4" style="margin-top:10px;" disabled>4 - TRANSFORM & POST</button>
+        </section>
+    </main>
+
+    <div style="padding:2px 10px; font-size:8px; color:#444; background:#000;">DEBUG LOGS</div>
+    <div id="debug-logger"></div>
+</div>
+
+<script src="sidepanel.js"></script>
 </body>
 </html>

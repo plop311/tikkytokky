@@ -9,7 +9,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ success: true, status: "ALIVE" });
     }
 
-    // 2. The Scroller Kill-Switch
+    // 2. The Account Warming Toggle
     if (msg.type === "TOGGLE_WARM_UP") {
         if (msg.enabled) {
             startHumanBrowsing();
@@ -19,9 +19,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ success: true });
     }
 
-    // 3. The Typo-Correction Engine (For Comments/Descriptions)
+    // 3. The Typo-Correction Engine
     if (msg.type === "TYPE_HUMAN_TEXT") {
-        simulateHumanTyping(msg.text, msg.targetSelector || "textarea");
+        simulateHumanTyping(msg.text);
         sendResponse({ success: true });
     }
 });
@@ -30,29 +30,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 function startHumanBrowsing() {
     if (scrollLoop) return;
-    console.log("[HUMAN] Starting Aesthetic Browsing sequence...");
+    console.log("[HUMAN] Starting Account Warming sequence...");
 
     const browse = () => {
         const roll = Math.random();
         let nextActionDelay = 3000;
 
-        // 60% Chance: Natural Scroll Down (mimics flicking a thumb)
-        if (roll < 0.6) {
-            const pixels = Math.floor(Math.random() * 500) + 300;
-            window.scrollBy({ top: pixels, behavior: 'smooth' });
-            console.log(`[HUMAN] Flicked feed: ${pixels}px`);
-            nextActionDelay = Math.floor(Math.random() * 3000) + 1500;
+        // 70% Chance: Press Down Arrow (Next Video)
+        if (roll < 0.7) {
+            const event = new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, bubbles: true });
+            document.body.dispatchEvent(event);
+            console.log("[HUMAN] Tapped 'ArrowDown' -> Next Video");
+            nextActionDelay = Math.floor(Math.random() * 4000) + 2000;
         }
-        // 30% Chance: The "Linger" (Watching the video, reading comments)
-        else if (roll < 0.9) {
+        // 25% Chance: The "Linger" (Watching the video)
+        else if (roll < 0.95) {
             console.log("[HUMAN] Video caught interest. Lingering...");
-            nextActionDelay = Math.floor(Math.random() * 10000) + 5000; // Wait 5-15 seconds
+            nextActionDelay = Math.floor(Math.random() * 12000) + 6000; // Wait 6-18 seconds
         }
-        // 10% Chance: The "Re-Watch" (Scrolling back up slightly)
+        // 5% Chance: The "Re-Watch" (Press Up Arrow)
         else {
-            window.scrollBy({ top: -250, behavior: 'smooth' });
-            console.log("[HUMAN] Scrolled back up to re-read/re-watch.");
-            nextActionDelay = Math.floor(Math.random() * 2000) + 1000;
+            const event = new KeyboardEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, bubbles: true });
+            document.body.dispatchEvent(event);
+            console.log("[HUMAN] Tapped 'ArrowUp' -> Re-watching previous");
+            nextActionDelay = Math.floor(Math.random() * 3000) + 2000;
         }
 
         scrollLoop = setTimeout(browse, nextActionDelay);
@@ -69,11 +70,13 @@ function stopHumanBrowsing() {
     }
 }
 
-// THE TYPO-CORRECTION ENGINE
-async function simulateHumanTyping(text, selector) {
-    const el = document.querySelector(selector) || document.activeElement;
-    if (!el) {
-        console.error("[HUMAN] No input field found to type in.");
+// THE TYPO-CORRECTION ENGINE (React-Safe)
+async function simulateHumanTyping(text) {
+    // Target TikTok's specific contenteditable div structure
+    const el = document.querySelector(".DraftEditor-root") || document.querySelector("[contenteditable='true']") || document.activeElement;
+
+    if (!el || !el.isContentEditable) {
+        console.error("[HUMAN] No input field found. Is the comment section visibly open?");
         return;
     }
 
@@ -88,25 +91,19 @@ async function simulateHumanTyping(text, selector) {
             const keys = "asdfghjklqwertyuiop";
             const wrongChar = keys[Math.floor(Math.random() * keys.length)];
 
-            // Type the wrong character
-            el.value += wrongChar;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
+            document.execCommand("insertText", false, wrongChar);
             await new Promise(r => setTimeout(r, Math.floor(Math.random() * 200) + 100));
 
-            // Notice the mistake (pause)
+            // Notice the mistake, pause, and backspace
             await new Promise(r => setTimeout(r, Math.floor(Math.random() * 400) + 200));
-
-            // Backspace
-            el.value = el.value.slice(0, -1);
-            el.dispatchEvent(new Event('input', { bubbles: true }));
+            document.execCommand("delete");
             await new Promise(r => setTimeout(r, Math.floor(Math.random() * 200) + 100));
         }
 
-        // Type the correct character
-        el.value += char;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
+        // Type correct character
+        document.execCommand("insertText", false, char);
 
-        // Variable typing speed (Random Girl vibe)
+        // Variable typing speed
         const delay = Math.random() * 150 + 50;
         await new Promise(r => setTimeout(r, delay));
     }

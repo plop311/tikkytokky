@@ -1,19 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "tikkytokky",
-  "version": "1.0",
-  "description": "High-velocity TikTok Shorts automation platform.",
+  "name": "tikkytokky Pilot",
+  "version": "1.1",
+  "description": "High-velocity TikTok automation platform.",
   "permissions": [
     "storage",
     "tabs",
     "scripting",
     "activeTab",
-    "sidePanel"
+    "sidePanel",
+    "offscreen"
   ],
   "host_permissions": [
     "*://*.tiktok.com/*",
-    "https://generativelanguage.googleapis.com/*",
-    "https://api.google.com/*"
+    "https://*.google.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -23,7 +23,7 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open Tikkytokky Pilot"
+    "default_title": "Open Pilot Panel"
   },
   "icons": {
     "16": "icons/icon.svg",

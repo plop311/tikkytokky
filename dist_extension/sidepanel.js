@@ -13,11 +13,13 @@ function obfuscate(input) {
 /**
  * Appends a message to the debug logger.
  */
-function log(msg) {
+function log(msg, isError = false) {
     const logger = document.getElementById('debug-logger');
     if (logger) {
-        logger.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-        logger.scrollTop = logger.scrollHeight; // Auto-scroll to bottom
+        const color = isError ? '#ff4444' : '#00ff00';
+        const timestamp = new Date().toLocaleTimeString();
+        logger.innerHTML += `<div style="color: ${color}; margin-bottom: 4px;">[${timestamp}] ${msg}</div>`;
+        logger.scrollTop = logger.scrollHeight;
     }
     console.log(`[tikkytokky] ${msg}`);
 }
@@ -100,7 +102,7 @@ async function checkEngineHealth() {
                     files: ["content.js"]
                 }, () => {
                     if (chrome.runtime.lastError) {
-                        log("[SYSTEM] Injection failed: " + chrome.runtime.lastError.message);
+                        log("[SYSTEM] Injection failed: " + chrome.runtime.lastError.message, true);
                     } else {
                         log("[SYSTEM] Content Script injected successfully.");
                     }
@@ -204,37 +206,49 @@ function initWarmUpToggle() {
 async function refreshTrends() {
     const list = document.getElementById("waves-list");
     list.innerHTML = '<div class="loader">Analyzing #MainCharacter Trends...</div>';
-    log("[VE] Parsing Wave Data (Skipping Thoughts...)");
 
-    chrome.runtime.sendMessage({ type: "GENERATE_WAVES", niche: "Main Character" }, (response) => {
-        try {
-            if (!response || !response.success) {
-                log(`ERROR: ${response ? response.error : 'Empty response from background.'}`);
-                list.innerHTML = `<p class="error">Error: ${response ? response.error : 'Empty response'}</p>`;
-                return;
-            }
-            const parts = response.data.candidates?.[0]?.content?.parts || [];
-            let jsonPart = null;
-            parts.forEach(part => {
-                if (part.thought) {
-                    log(`Gemini Thought: ${part.text.substring(0, 70)}...`);
-                } else if (!jsonPart) {
-                    jsonPart = part;
+    try {
+        log("📡 Calling Gemini 3 Flash v1beta...");
+        chrome.runtime.sendMessage({ type: "GENERATE_WAVES", niche: "Main Character" }, (response) => {
+            try {
+                if (!response || !response.success) {
+                    log(`ERROR: ${response ? response.error : 'Empty response from background.'}`, true);
+                    list.innerHTML = `<p class="error">Error: ${response ? response.error : 'Empty response'}</p>`;
+                    return;
                 }
-            });
-            if (jsonPart) {
-                const cleanedJson = jsonPart.text.replace(/```json|```/g, "").trim();
-                log("Raw Response received. Length: " + cleanedJson.length);
-                const waves = JSON.parse(cleanedJson);
-                renderWaves(waves);
-            } else {
-                throw new Error("No valid JSON part found in Gemini response.");
+
+                log("📦 RAW RESPONSE TYPE: " + typeof response.data);
+                log("🔍 FULL DATA DUMP: " + JSON.stringify(response.data).substring(0, 200));
+
+                const parts = response.data.candidates?.[0]?.content?.parts || [];
+                let jsonPart = null;
+                parts.forEach(part => {
+                    if (part.thought) {
+                        log(`Gemini Thought: ${part.text.substring(0, 70)}...`);
+                    } else if (!jsonPart) {
+                        jsonPart = part;
+                    }
+                });
+
+                if (jsonPart) {
+                    // Force into string regardless of what Gemini sends
+                    let textToClean = jsonPart.text ? String(jsonPart.text) : JSON.stringify(jsonPart);
+                    const cleanJson = textToClean.replace(/```json|```/g, "").trim();
+                    log(`[VE] Cleaned JSON received. Length: ${cleanJson.length}. Parsing...`);
+
+                    const waves = JSON.parse(cleanJson);
+                    renderWaves(waves);
+                } else {
+                    throw new Error("No valid JSON part found in Gemini response.");
+                }
+            } catch (err) {
+                log("🚨 CRITICAL CRASH: " + err.stack, true);
+                list.innerHTML = `<p class="error">Critical Exception: check logs.</p>`;
             }
-        } catch (err) {
-            log(`CRITICAL ERROR during parse/render: ${err.message}`);
-            list.innerHTML = `<p class="error">Critical Exception: ${err.message}</p>`;
-        }
-    });
+        });
+    } catch (err) {
+        log("🚨 CRITICAL CRASH: " + err.stack, true);
+    }
 }
 
 function renderWaves(waves) {

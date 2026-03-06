@@ -204,55 +204,61 @@ function initWarmUpToggle() {
 }
 
 async function refreshTrends() {
-    const list = document.getElementById("waves-list");
-    list.innerHTML = '<div class="loader">Analyzing #MainCharacter Trends...</div>';
-
     try {
-        log("📡 Calling Gemini 3 Flash v1beta...");
+        log("📡 Requesting Waves from Gemini 3 Flash...");
+
         chrome.runtime.sendMessage({ type: "GENERATE_WAVES", niche: "Main Character" }, (response) => {
             try {
                 if (!response || !response.success) {
                     log(`ERROR: ${response ? response.error : 'Empty response from background.'}`, true);
-                    list.innerHTML = `<p class="error">Error: ${response ? response.error : 'Empty response'}</p>`;
                     return;
                 }
 
                 log("📦 RAW RESPONSE TYPE: " + typeof response.data);
                 log("🔍 FULL DATA DUMP: " + JSON.stringify(response.data).substring(0, 200));
 
-                const parts = response.data.candidates?.[0]?.content?.parts || [];
-                let jsonPart = null;
-                parts.forEach(part => {
-                    if (part.thought) {
-                        log(`Gemini Thought: ${part.text.substring(0, 70)}...`);
-                    } else if (!jsonPart) {
-                        jsonPart = part;
-                    }
-                });
+                // 1. DATA EXTRACTION (The v1beta Way)
+                // response.data contains the Gemini result with candidates
+                const part = response.data.candidates?.[0]?.content?.parts?.[0];
 
-                if (jsonPart) {
-                    // Force into string regardless of what Gemini sends
-                    let textToClean = jsonPart.text ? String(jsonPart.text) : JSON.stringify(jsonPart);
-                    const cleanJson = textToClean.replace(/```json|```/g, "").trim();
-                    log(`[VE] Cleaned JSON received. Length: ${cleanJson.length}. Parsing...`);
-
-                    const waves = JSON.parse(cleanJson);
-                    renderWaves(waves);
+                // 2. THE BULLETPROOF STRING FIX
+                // We force it into a string before touching it with .replace()
+                let rawContent = "";
+                if (part && part.text) {
+                    rawContent = String(part.text);
+                } else if (part) {
+                    rawContent = JSON.stringify(part);
                 } else {
-                    throw new Error("No valid JSON part found in Gemini response.");
+                    rawContent = JSON.stringify(response.data);
                 }
+
+                log("🔍 Raw data captured. Sanitizing JSON...");
+
+                // 3. THE REPLACEMENT (Safe now because rawContent is 100% a string)
+                const cleanJson = rawContent.replace(/```json|```/g, "").trim();
+
+                log("📝 Cleaned JSON: " + cleanJson.substring(0, 50) + "...");
+                const trends = JSON.parse(cleanJson);
+
+                // 4. UI RENDER
+                renderWaves(trends);
+                log("✅ Waves Updated Successfully.");
+
             } catch (err) {
-                log("🚨 CRITICAL CRASH: " + err.stack, true);
-                list.innerHTML = `<p class="error">Critical Exception: check logs.</p>`;
+                log("🚨 CRITICAL ERROR (Callback): " + err.message, true);
+                console.error(err);
             }
         });
+
     } catch (err) {
-        log("🚨 CRITICAL CRASH: " + err.stack, true);
+        log("🚨 CRITICAL ERROR (Async): " + err.message, true);
+        console.error(err);
     }
 }
 
 function renderWaves(waves) {
     const list = document.getElementById("waves-list");
+    if (!list) return;
     list.innerHTML = "";
     log(`Rendering ${waves.length} viral waves.`);
     waves.forEach(wave => {

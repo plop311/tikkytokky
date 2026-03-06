@@ -39,11 +39,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === "GENERATE_SALUTE_HOOK") {
-        // NEW: Grab the context passed from the sidepanel/content script, or fallback if empty
         const videoContext = message.context || "general aesthetic vibes";
         console.log(`[SW_GEMINI] Constructing Hook Prompt using context: "${videoContext.substring(0, 50)}..."`);
 
-        // THE JSON SAVAGE PROMPT + CONTEXT AWARENESS
         const prompt = `${PERSONA_VOICE}
         You are watching a TikTok video with this description/hashtags: "${videoContext}"
         Write ONE short, relatable comment reacting to it.
@@ -54,13 +52,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         gemini.generateContent(prompt).then(data => {
             const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-            // THE HOOK PARSER: Extracts the JSON object
             const match = raw.match(/\{[\s\S]*\}/);
             if (match) {
                 try {
                     const parsed = JSON.parse(match[0]);
-                    console.log(`[SW_GEMINI] Hook sanitized: "${parsed.hook}"`);
-                    sendResponse({ success: true, hook: parsed.hook });
+
+                    // RESILIENT PARSER: Grab the first value, regardless of what Gemini named the key
+                    const finalHook = parsed.hook || parsed.comment || parsed.text || Object.values(parsed)[0];
+
+                    if (!finalHook) throw new Error("Parsed JSON was empty");
+
+                    console.log(`[SW_GEMINI] Hook sanitized: "${finalHook}"`);
+                    sendResponse({ success: true, hook: finalHook });
                 } catch (e) {
                     console.error("[SW_GEMINI_ERROR] JSON parse failed on hook payload.");
                     sendResponse({ success: false, error: "Parser failed." });

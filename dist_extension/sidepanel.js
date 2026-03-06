@@ -14,7 +14,7 @@ function log(msg, isError = false) {
     if (autoScrollEnabled) logger.scrollTop = logger.scrollHeight;
 }
 
-// --- CONTENT SCRIPT BRIDGE (NEW) ---
+// --- CONTENT SCRIPT BRIDGE ---
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "UI_LOG") {
         log(msg.message, msg.isError);
@@ -110,42 +110,23 @@ function switchTab(target) {
 
 async function refreshTrends() {
     log("[API] Initiating handshake with Gemini 3 Flash Preview...");
-    log("[API] Requesting #MainCharacter Waves...");
-
     chrome.runtime.sendMessage({ type: "GENERATE_WAVES" }, (res) => {
         if (!res || !res.success) {
             log(`[API_CRASH] ${res?.error || 'Empty Response. Keys exhausted?'}`, true);
             return;
         }
-
-        log("[API] Payload received. Engaging Savage Parser...");
-
         try {
             const raw = res.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            log(`[PARSER] Raw output length: ${raw.length} chars.`);
-
             const match = raw.match(/\[[\s\S]*\]/);
+            if (!match) return log("[PARSER_FATAL] No JSON array boundaries detected.", true);
 
-            if (!match) {
-                log("[PARSER_FATAL] No JSON array boundaries detected in payload.", true);
-                console.log("RAW G3 OUTPUT:", raw);
-                return;
-            }
-
-            log("[PARSER] Array boundaries locked. Executing JSON parse...");
             const trends = JSON.parse(match[0]);
-
-            log(`[PARSER_SUCCESS] Extracted ${trends.length} valid trend objects.`);
             renderTrendCards(trends);
-        } catch (e) {
-            log(`[PARSER_CRASH] Syntax failure: ${e.message}`, true);
-            console.error("PARSER ERROR DATA:", res.data);
-        }
+        } catch (e) { log(`[PARSER_CRASH] Syntax failure: ${e.message}`, true); }
     });
 }
 
 function renderTrendCards(trends) {
-    log("[UI] Rendering Viral Wave cards...");
     const list = document.getElementById("waves-list");
     if (!list) return;
     list.innerHTML = "";
@@ -159,24 +140,17 @@ function renderTrendCards(trends) {
 
     document.querySelectorAll('.auto-btn').forEach(btn => {
         btn.onclick = () => {
-            const targetTrend = btn.dataset.trend;
-            log(`[VAULT] Automating capture sequence for: ${targetTrend}`);
-            chrome.runtime.sendMessage({ type: "SCRAPE_TREND_ASSETS", trend: targetTrend }, () => {
-                log(`[VAULT] Capture complete. Switching active tab.`);
-                switchTab('vault');
-            });
+            log(`[VAULT] Automating capture sequence for: ${btn.dataset.trend}`);
+            chrome.runtime.sendMessage({ type: "SCRAPE_TREND_ASSETS", trend: btn.dataset.trend }, () => switchTab('vault'));
         };
     });
 }
 
 async function renderVault() {
-    log("[STORAGE] Polling local videoVault...");
     const list = document.getElementById('vault-list');
     if (!list) return;
     const { videoVault } = await chrome.storage.local.get("videoVault");
     const assets = videoVault || [];
-    log(`[STORAGE] Vault contains ${assets.length} assets.`);
-
     list.innerHTML = assets.length ? "" : "Vault is empty.";
     assets.forEach(a => {
         const d = document.createElement('div');
@@ -187,18 +161,12 @@ async function renderVault() {
 }
 
 async function saveKeys() {
-    log("[SYSTEM] Key save sequence initiated.");
     const input = document.getElementById('key-input');
     if (!input) return;
     const rawText = input.value.trim();
-    if (!rawText) {
-        log("[SYSTEM] Aborting save: Input field empty.", true);
-        return;
-    }
+    if (!rawText) return;
 
     const keys = rawText.split(/\n/).map(k => k.trim()).filter(k => k);
-    log(`[SYSTEM] Encrypting ${keys.length} detected keys...`);
-
     chrome.storage.local.get(["apiKeys"], async (res) => {
         const existing = res.apiKeys || [];
         const obfuscated = keys.map(k => ({ encryptedKey: obfuscate(k), isLimited: false, cooldownUntil: 0 }));
@@ -243,7 +211,26 @@ function shotgunHashtags() {
     });
 }
 
+// --- UPGRADED COMMENT ENGINE ---
 function executeHumanComment() {
+    const btn = document.getElementById('human-comment');
+    if (btn.disabled) return; // Prevent double-clicking
+
+    // Lock UI and show state
+    btn.disabled = true;
+    btn.textContent = "5 - CRAFTING COMMENT...";
+
+    log("[HUMAN_BRIDGE] Auto-pausing Ghost Scroller to lock target...");
+
+    // Force the toggle to OFF
+    const toggle = document.getElementById("warm-up-toggle");
+    if (toggle && toggle.checked) {
+        toggle.checked = false;
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_WARM_UP", enabled: false });
+        });
+    }
+
     log("[HUMAN_BRIDGE] Scanning active video for context...");
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
@@ -254,14 +241,23 @@ function executeHumanComment() {
                 chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK", context: videoContext }, (res) => {
                     if (res.success) {
                         log(`[HUMAN_BRIDGE] AI crafted contextual comment: "${res.hook}"`);
-                        chrome.tabs.sendMessage(tabs[0].id, { type: "TYPE_HUMAN_TEXT", text: res.hook });
+
+                        // Send text, wait for the typing to finish before unlocking the button
+                        chrome.tabs.sendMessage(tabs[0].id, { type: "TYPE_HUMAN_TEXT", text: res.hook }, () => {
+                            btn.disabled = false;
+                            btn.textContent = "5 - HUMAN COMMENT";
+                        });
                     } else {
                          log(`[HUMAN_BRIDGE_CRASH] Could not generate contextual comment.`, true);
+                         btn.disabled = false;
+                         btn.textContent = "5 - HUMAN COMMENT";
                     }
                 });
             });
         } else {
             log(`[HUMAN_BRIDGE_CRASH] Cannot determine active tab.`, true);
+            btn.disabled = false;
+            btn.textContent = "5 - HUMAN COMMENT";
         }
     });
 }
@@ -269,9 +265,7 @@ function executeHumanComment() {
 function executeAlgorithmTraining() {
     log("[HUMAN_BRIDGE] Initializing FYP Algorithm Training sequence...");
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, { type: "TRAIN_FYP_ALGORITHM" });
-        }
+        if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "TRAIN_FYP_ALGORITHM" });
     });
 }
 

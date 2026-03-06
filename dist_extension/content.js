@@ -42,7 +42,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ success: true });
     }
 
-    // NEW: CONTEXTUAL AWARENESS
+    // CONTEXTUAL AWARENESS
     if (msg.type === "GET_ACTIVE_VIDEO_CONTEXT") {
         const activeContainer = document.querySelector('[data-e2e="recommend-list-item-container"][data-active="true"]') || document;
         const descElement = activeContainer.querySelector('[data-e2e="video-desc"]');
@@ -92,10 +92,13 @@ function stopHumanBrowsing() {
     }
 }
 
-// --- RANDOM LIKING ENGINE ---
+// --- RANDOM LIKING ENGINE (UPGRADED) ---
 function attemptRandomLike() {
-    const activeVideoContainer = document.querySelector('[data-e2e="recommend-list-item-container"][data-active="true"]') || document;
-    const likeButton = activeVideoContainer.querySelector('[data-e2e="like-icon"]');
+    // Look for the FYP active container first
+    let activeContainer = document.querySelector('[data-e2e="recommend-list-item-container"][data-active="true"]');
+
+    // If not on FYP (Theater Mode), just search the whole document for the like icon
+    let likeButton = activeContainer ? activeContainer.querySelector('[data-e2e="like-icon"]') : document.querySelector('[data-e2e="like-icon"]');
 
     if (likeButton) {
         const isAlreadyLiked = likeButton.closest('div').classList.contains('liked') ||
@@ -165,30 +168,38 @@ async function executeRouletteSpin() {
     }
 }
 
-// --- TYPO-CORRECTION ENGINE ---
+// --- TYPO-CORRECTION ENGINE (REACT-SAFE UPGRADE) ---
 async function simulateHumanTyping(text) {
-    const el = document.querySelector(".DraftEditor-root") || document.querySelector("[contenteditable='true']") || document.activeElement;
-    if (!el || !el.isContentEditable) {
+    if (!text || text === "undefined") {
+        logToUI("Aborting type: AI generated empty or undefined text.", true);
+        return;
+    }
+
+    // Safely hunt down the exact React Draft.js editable text node
+    let el = document.querySelector('.public-DraftEditor-content') ||
+             document.querySelector('.DraftEditor-root [contenteditable="true"]') ||
+             document.querySelector('[data-e2e="comment-input"] [contenteditable="true"]') ||
+             document.querySelector("[contenteditable='true']");
+
+    if (!el) {
         logToUI("No input field found. Is the comment section visibly open?", true);
         return;
     }
 
     logToUI(`Preparing to type: "${text}"`);
-    el.focus();
 
+    // Wake up the React component
+    el.focus();
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    el.click();
+    await new Promise(r => setTimeout(r, 400));
+
+    // Type the text cleanly at human speed.
+    // CRITICAL FIX: Removed backspace simulation to prevent React invariant violation crashes.
     for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (Math.random() < 0.08) {
-            const keys = "asdfghjklqwertyuiop";
-            const wrongChar = keys[Math.floor(Math.random() * keys.length)];
-            document.execCommand("insertText", false, wrongChar);
-            await new Promise(r => setTimeout(r, Math.floor(Math.random() * 200) + 100));
-            await new Promise(r => setTimeout(r, Math.floor(Math.random() * 400) + 200));
-            document.execCommand("delete");
-            await new Promise(r => setTimeout(r, Math.floor(Math.random() * 200) + 100));
-        }
-        document.execCommand("insertText", false, char);
-        await new Promise(r => setTimeout(r, Math.random() * 150 + 50));
+        document.execCommand("insertText", false, text[i]);
+        await new Promise(r => setTimeout(r, Math.random() * 120 + 30));
     }
+
     logToUI("Typing sequence complete.");
 }

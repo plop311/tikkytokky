@@ -46,15 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
     bind('shotgun-hashtags', shotgunHashtags);
     bind('init-engine', initializeEngine);
     bind('transform-video', () => log("WASM Transformation Sequence Standby."));
+    bind('human-comment', executeHumanComment); // NEW ACTION
     bind('save-keys', saveKeys);
 
     bind('settings-gear', () => {
         const m = document.getElementById('settings-menu');
         if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
-        log("[UI] Settings Toggled.");
     });
 
-    // WARM-UP TOGGLE (The Scroller Kill-Switch)
     const warmUpToggle = document.getElementById("warm-up-toggle");
     if (warmUpToggle) {
         warmUpToggle.onchange = () => {
@@ -72,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
-    // LOAD SAVED DATA
     renderKeyList();
     renderVault();
     updateStatusBar();
@@ -94,7 +92,6 @@ async function refreshTrends() {
     log("Requesting #MainCharacter Waves...");
     chrome.runtime.sendMessage({ type: "GENERATE_WAVES" }, (res) => {
         if (!res || !res.success) return log(`CRASH: ${res?.error || 'Empty Response'}`, true);
-
         try {
             const raw = res.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             const start = raw.indexOf('[');
@@ -102,9 +99,7 @@ async function refreshTrends() {
             const trends = JSON.parse(raw.substring(start, end));
             renderTrendCards(trends);
             log(`Success: Found ${trends.length} viral leads.`);
-        } catch (e) {
-            log(`Parser Error: Check raw AI output.`, true);
-        }
+        } catch (e) { log(`Parser Error. Check raw output.`, true); }
     });
 }
 
@@ -115,17 +110,9 @@ function renderTrendCards(trends) {
     trends.forEach(t => {
         const card = document.createElement("div");
         card.className = "glass-card";
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between;">
-                <strong>${t.trendName}</strong>
-                <span style="color:#00f0ff;">${t.viralScore}%</span>
-            </div>
-            <p style="font-size:10px; margin:5px 0;">${t.description}</p>
-            <button class="action-btn auto-btn" data-trend="${t.trendName}">AUTOMATE</button>
-        `;
+        card.innerHTML = `<strong>${t.trendName} (${t.viralScore}%)</strong><p>${t.description}</p><button class="action-btn auto-btn" data-trend="${t.trendName}">AUTOMATE</button>`;
         list.appendChild(card);
     });
-
     document.querySelectorAll('.auto-btn').forEach(btn => {
         btn.onclick = () => {
             log(`Staging: ${btn.dataset.trend}`);
@@ -148,8 +135,6 @@ async function renderVault() {
     });
 }
 
-// --- KEY MANAGEMENT (RESTORED) ---
-
 async function saveKeys() {
     const input = document.getElementById('key-input');
     if (!input) return;
@@ -159,14 +144,10 @@ async function saveKeys() {
     const keys = rawText.split(/\n/).map(k => k.trim()).filter(k => k);
     chrome.storage.local.get(["apiKeys"], async (res) => {
         const existing = res.apiKeys || [];
-        const obfuscated = keys.map(k => ({
-            encryptedKey: obfuscate(k),
-            isLimited: false,
-            cooldownUntil: 0
-        }));
+        const obfuscated = keys.map(k => ({ encryptedKey: obfuscate(k), isLimited: false, cooldownUntil: 0 }));
         await chrome.storage.local.set({ apiKeys: [...existing, ...obfuscated] });
         input.value = "";
-        log(`[SYSTEM] Added ${keys.length} keys to pool.`);
+        log(`[SYSTEM] Added ${keys.length} keys.`);
         renderKeyList();
         updateStatusBar();
     });
@@ -199,16 +180,26 @@ function shotgunHashtags() {
         if (res.success) {
             navigator.clipboard.writeText(res.hook);
             log(`HOOK COPIED: "${res.hook}"`);
-        } else log("Hook generation failed.", true);
+        } else log("Hook failure.", true);
+    });
+}
+
+function executeHumanComment() {
+    log("🎯 Crafting Human Comment...");
+    chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK" }, (res) => {
+        if (res.success) {
+            log(`[HUMAN] Typing: "${res.hook}" at human speed...`);
+            chrome.runtime.sendMessage({
+                type: "EXECUTE_TYPO_TYPING",
+                text: res.hook,
+                targetId: "[contenteditable='true']" // TikTok comment box selector
+            });
+        }
     });
 }
 
 function initializeEngine() {
-    log("Engine Warming Up: Injecting Human Heuristics...");
-    const transformBtn = document.getElementById('transform-video');
-    if (transformBtn) {
-        transformBtn.disabled = false;
-        transformBtn.style.opacity = "1";
-        log("✅ Button 4 UNLOCKED.");
-    }
+    log("Engine Warming Up...");
+    const btn = document.getElementById('transform-video');
+    if (btn) { btn.disabled = false; btn.style.opacity = "1"; log("✅ Engine Ready."); }
 }

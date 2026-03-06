@@ -39,13 +39,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === "GENERATE_SALUTE_HOOK") {
-        console.log("[SW_GEMINI] Constructing Hook Prompt...");
+        // NEW: Grab the context passed from the sidepanel/content script, or fallback if empty
+        const videoContext = message.context || "general aesthetic vibes";
+        console.log(`[SW_GEMINI] Constructing Hook Prompt using context: "${videoContext.substring(0, 50)}..."`);
 
-        // THE JSON SAVAGE PROMPT
+        // THE JSON SAVAGE PROMPT + CONTEXT AWARENESS
         const prompt = `${PERSONA_VOICE}
-        Generate ONE short, viral, relatable hook line.
+        You are watching a TikTok video with this description/hashtags: "${videoContext}"
+        Write ONE short, relatable comment reacting to it.
         Return ONLY a raw JSON object.
-        Example format: {"hook": "The sudden urge to romanticize a random Tuesday."}
+        Example format: {"hook": "This is literally me."}
         No intro, no markdown, no explanation.`;
 
         gemini.generateContent(prompt).then(data => {

@@ -233,7 +233,7 @@ function updateStatusBar() {
 
 function shotgunHashtags() {
     log("[API] Polling Gemini 3 Flash for viral hook generation...");
-    chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK" }, (res) => {
+    chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK", context: "general aesthetic vibes" }, (res) => {
         if (res.success) {
             navigator.clipboard.writeText(res.hook);
             log(`[CLIPBOARD] Hook successfully copied: "${res.hook}"`);
@@ -244,13 +244,24 @@ function shotgunHashtags() {
 }
 
 function executeHumanComment() {
-    log("[HUMAN_BRIDGE] Crafting Human Comment sequence...");
-    chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK" }, (res) => {
-        if (res.success) {
-            log(`[HUMAN_BRIDGE] Dispatching payload to content script: "${res.hook}"`);
-            chrome.runtime.sendMessage({ type: "EXECUTE_TYPO_TYPING", text: res.hook });
+    log("[HUMAN_BRIDGE] Scanning active video for context...");
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: "GET_ACTIVE_VIDEO_CONTEXT" }, (contextRes) => {
+                const videoContext = (contextRes && contextRes.success) ? contextRes.context : "random aesthetic vibes";
+                log(`[HUMAN_BRIDGE] Context locked. Dispatching to Gemini...`);
+
+                chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK", context: videoContext }, (res) => {
+                    if (res.success) {
+                        log(`[HUMAN_BRIDGE] AI crafted contextual comment: "${res.hook}"`);
+                        chrome.tabs.sendMessage(tabs[0].id, { type: "TYPE_HUMAN_TEXT", text: res.hook });
+                    } else {
+                         log(`[HUMAN_BRIDGE_CRASH] Could not generate contextual comment.`, true);
+                    }
+                });
+            });
         } else {
-             log(`[HUMAN_BRIDGE_CRASH] Could not generate comment text.`, true);
+            log(`[HUMAN_BRIDGE_CRASH] Cannot determine active tab.`, true);
         }
     });
 }

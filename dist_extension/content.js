@@ -3,7 +3,6 @@ let scrollLoop = null;
 
 function logToUI(msg, isError = false) {
     console.log(`[HUMAN] ${msg}`);
-    // Send log back to sidepanel if it's open
     chrome.runtime.sendMessage({ type: "UI_LOG", message: msg, isError: isError }).catch(() => {});
 }
 
@@ -19,7 +18,6 @@ window.addEventListener('mousemove', (e) => {
 });
 
 // --- GRID ROULETTE (Boot Sequence) ---
-// FIXED TYPO: 'randomgirlirl_roulette'
 if (sessionStorage.getItem('randomgirlirl_roulette') === 'spin') {
     sessionStorage.removeItem('randomgirlirl_roulette');
     logToUI("New aesthetic niche loaded. Initiating Grid Roulette...");
@@ -43,9 +41,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         trainAlgorithm();
         sendResponse({ success: true });
     }
+
+    // NEW: CONTEXTUAL AWARENESS
+    if (msg.type === "GET_ACTIVE_VIDEO_CONTEXT") {
+        const activeContainer = document.querySelector('[data-e2e="recommend-list-item-container"][data-active="true"]') || document;
+        const descElement = activeContainer.querySelector('[data-e2e="video-desc"]');
+        const contextText = descElement ? descElement.textContent.trim() : "aesthetic randomgirlirl vibes";
+        sendResponse({ success: true, context: contextText });
+    }
 });
 
-// --- FYP NAVIGATION (Desktop Keyboard Emulation) ---
+// --- FYP NAVIGATION ---
 function startHumanBrowsing() {
     if (scrollLoop) return;
     logToUI("Starting FYP Navigation sequence...");
@@ -106,7 +112,7 @@ function attemptRandomLike() {
     }
 }
 
-// --- ALGORITHM TRAINING (URL Jump) ---
+// --- ALGORITHM TRAINING ---
 function trainAlgorithm() {
     const nicheUrls = [
         "https://www.tiktok.com/tag/romanticizingmylife",
@@ -126,13 +132,10 @@ function trainAlgorithm() {
 // --- GRID ROULETTE LOGIC ---
 async function executeRouletteSpin() {
     logToUI("Polling DOM for video grid...");
-
     let attempts = 0;
     let videos = [];
 
-    // Increased polling time to account for slower connections/React rendering
     while(attempts < 15) {
-        // TikTok grid items usually contain a link with /video/ in the href
         videos = Array.from(document.querySelectorAll('a[href*="/video/"]'));
         if (videos.length > 5) {
             logToUI(`Grid locked. Found ${videos.length} potential targets.`);
@@ -144,17 +147,13 @@ async function executeRouletteSpin() {
     }
 
     if (videos.length > 0) {
-        // Pick from the top 12 videos to ensure they are actually visible on screen
         const maxIndex = Math.min(videos.length, 12);
         const randomIndex = Math.floor(Math.random() * maxIndex);
 
         logToUI(`Roulette landed on video index [${randomIndex}]. Engaging Theater Mode in 2s...`);
-
         await new Promise(r => setTimeout(r, 2000));
 
-        // Find the actual element to click (sometimes the <a> isn't clickable, we need a child)
-        const targetElement = videos[randomIndex];
-        targetElement.click();
+        videos[randomIndex].click();
 
         logToUI("Theater Mode requested. Resuming Ghost Scroller in 4s...");
         setTimeout(() => {

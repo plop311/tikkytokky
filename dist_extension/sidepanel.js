@@ -103,24 +103,23 @@ async function refreshTrends() {
 
                 // THE BULLETPROOF STRING CONVERSION
                 const part = response.data.candidates?.[0]?.content?.parts?.[0] || {};
-                let geminiResponseString = part.text ? String(part.text) : JSON.stringify(part);
+                const raw = part.text ? String(part.text) : JSON.stringify(part);
 
-                log("🔍 Raw data captured. Performing Savage Parser Extraction...");
+                log("🔍 Raw data captured. Performing Savage Extraction...");
 
-                // THE SAVAGE PARSER: Slice everything between the first '[' and the last ']'
-                const start = geminiResponseString.indexOf('[');
-                const end = geminiResponseString.lastIndexOf(']') + 1;
+                // THE SAVAGE PARSER: Greedy Slice to handle conversational chatter
+                const start = raw.indexOf('[');
+                const end = raw.lastIndexOf(']') + 1;
 
-                if (start === -1 || end === 0) {
-                    log("📦 RAW DUMP FOR DEBUG: " + geminiResponseString.substring(0, 100), true);
-                    throw new Error("No JSON array found in Gemini response.");
+                if (start !== -1 && end > start) {
+                    const cleanJson = raw.substring(start, end);
+                    const trends = JSON.parse(cleanJson);
+                    renderTrendCards(trends);
+                    log("✅ Waves Synced.");
+                } else {
+                    log("📦 RAW DUMP: " + raw.substring(0, 100), true);
+                    throw new Error("AI failed to provide a JSON array.");
                 }
-
-                const cleanJson = geminiResponseString.substring(start, end).trim();
-                const trends = JSON.parse(cleanJson);
-
-                renderTrendCards(trends);
-                log("✅ Waves Updated Successfully.");
 
             } catch (err) {
                 log("🚨 CRITICAL CRASH: " + err.stack, true);
@@ -239,6 +238,7 @@ async function saveKeys() {
         cooldownUntil: 0
     }));
 
+    // CRITICAL: Fetch first, then push, then set using Spread Operator to avoid overwriting existing data.
     chrome.storage.local.get(['apiKeys'], async (res) => {
         const existingKeys = res.apiKeys || [];
         const updatedKeys = [...existingKeys, ...obfuscatedNewKeys];
@@ -262,7 +262,7 @@ async function handleKeyListActions(e) {
     if (e.target.classList.contains('delete-btn')) {
         keys.splice(index, 1);
         await chrome.storage.local.set({ apiKeys: keys });
-        log("[VAULT] Key Deleted.");
+        log("Key Deleted.");
     } else if (e.target.classList.contains('edit-btn')) {
         const keyToEdit = keys[index];
         const input = document.getElementById('key-input');
@@ -309,28 +309,30 @@ function renderKeyList() {
     });
 }
 
-// --- UPDATED TAB SWITCHER (SILIGRAVE PROTOCOL) ---
+// --- THE IMMORTAL TAB SWITCHER ---
 function switchTab(target) {
-    document.querySelectorAll(".tab-content").forEach(c => {
-        c.style.setProperty("display", "none", "important"); // Force hide
-        c.classList.remove("active", "hidden");
+    const containers = document.querySelectorAll(".tab-content");
+    const buttons = document.querySelectorAll(".tab-btn");
+
+    containers.forEach(c => {
+        c.style.setProperty("display", "none", "important"); // Bypass CSS specificity conflicts
+        c.classList.remove("active");
     });
-
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-
-    const activeBtn = document.querySelector(`[data-tab="${target}"]`);
-    if (activeBtn) activeBtn.classList.add("active");
+    buttons.forEach(b => b.classList.remove("active"));
 
     const activeContent = document.getElementById(target);
-    if (activeContent) {
-        activeContent.style.setProperty("display", "block", "important"); // Force show
+    const activeBtn = document.querySelector(`[data-tab="${target}"]`);
+
+    if (activeContent && activeBtn) {
+        activeContent.style.setProperty("display", "block", "important");
         activeContent.classList.add("active");
+        activeBtn.classList.add("active");
 
         // TRIGGER RENDERS ON SWITCH
         if (target === "vault") renderVault();
         if (target === "waves") updateStatusBar();
 
-        log(`[UI] Switched to tab: ${target.toUpperCase()}`);
+        log(`[SYSTEM] Navigation: ${target.toUpperCase()}`);
     }
 }
 

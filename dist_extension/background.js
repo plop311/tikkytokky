@@ -41,20 +41,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "GENERATE_SALUTE_HOOK") {
         console.log("[SW_GEMINI] Constructing Hook Prompt...");
 
-        // THE STRICT KILL-SWITCH
+        // THE JSON SAVAGE PROMPT
         const prompt = `${PERSONA_VOICE}
         Generate ONE short, viral, relatable hook line.
-        CRITICAL RULES:
-        1. DO NOT say "My Viral Hook Thoughts" or anything similar.
-        2. DO NOT output conversational text or explanations.
-        3. OUTPUT EXACTLY ONE SENTENCE. NOTHING ELSE.
-        Example: The sudden urge to romanticize a random Tuesday.`;
+        Return ONLY a raw JSON object.
+        Example format: {"hook": "The sudden urge to romanticize a random Tuesday."}
+        No intro, no markdown, no explanation.`;
 
         gemini.generateContent(prompt).then(data => {
             const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            const hook = raw.split('\n')[0].replace(/\*/g, '').replace(/"/g, '').trim();
-            console.log(`[SW_GEMINI] Hook sanitized: "${hook}"`);
-            sendResponse({ success: true, hook });
+
+            // THE HOOK PARSER: Extracts the JSON object
+            const match = raw.match(/\{[\s\S]*\}/);
+            if (match) {
+                try {
+                    const parsed = JSON.parse(match[0]);
+                    console.log(`[SW_GEMINI] Hook sanitized: "${parsed.hook}"`);
+                    sendResponse({ success: true, hook: parsed.hook });
+                } catch (e) {
+                    console.error("[SW_GEMINI_ERROR] JSON parse failed on hook payload.");
+                    sendResponse({ success: false, error: "Parser failed." });
+                }
+            } else {
+                 console.error("[SW_GEMINI_ERROR] Could not isolate JSON boundaries in hook payload.");
+                 sendResponse({ success: false, error: "Boundary detection failed." });
+            }
         }).catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     }

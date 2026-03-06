@@ -14,6 +14,17 @@ function log(msg, isError = false) {
     if (autoScrollEnabled) logger.scrollTop = logger.scrollHeight;
 }
 
+// --- CONTENT SCRIPT BRIDGE (NEW) ---
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "UI_LOG") {
+        log(msg.message, msg.isError);
+    }
+    if (msg.type === "SYNC_UI_TOGGLE") {
+        const toggle = document.getElementById("warm-up-toggle");
+        if (toggle) toggle.checked = msg.enabled;
+    }
+});
+
 // --- UTILITIES ---
 function obfuscate(input) {
     let xorResult = "";
@@ -54,8 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bind('transform-video', () => log("[ENGINE] WASM Transformation Sequence Standby."));
     bind('save-keys', saveKeys);
     bind('human-comment', executeHumanComment);
-
-    // NEW: Binding the Algorithm Training Button
     bind('train-fyp', executeAlgorithmTraining);
 
     bind('settings-gear', () => {
@@ -115,7 +124,6 @@ async function refreshTrends() {
             const raw = res.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             log(`[PARSER] Raw output length: ${raw.length} chars.`);
 
-            // THE SAVAGE REGEX PARSER (Hunts down the array)
             const match = raw.match(/\[[\s\S]*\]/);
 
             if (!match) {
@@ -247,7 +255,6 @@ function executeHumanComment() {
     });
 }
 
-// NEW: Tells the content script to execute the search
 function executeAlgorithmTraining() {
     log("[HUMAN_BRIDGE] Initializing FYP Algorithm Training sequence...");
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

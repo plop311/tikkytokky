@@ -18,7 +18,7 @@ function log(msg, isError = false) {
 document.addEventListener('DOMContentLoaded', () => {
     log("System Initializing... Full Mechanical Sync.");
 
-    // Wiring Buttons
+    // Function placeholders to prevent ReferenceErrors
     const bindings = {
         'refresh-trends': refreshTrends,
         'shotgun-hashtags': shotgunHashtags,
@@ -33,19 +33,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.onclick = func;
     });
 
-    // Logger Pause Logic
     const logger = document.getElementById('debug-logger');
     if (logger) {
         logger.onmouseenter = () => { autoScrollEnabled = false; log("⏸ Log Scroll Paused"); };
         logger.onmouseleave = () => { autoScrollEnabled = true; log("▶ Log Scroll Resumed"); };
     }
 
-    // Tab Navigation
     document.querySelectorAll(".tab-btn").forEach(btn => {
         btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
-    // Warm-Up Toggle Wiring
     const warmUpToggle = document.getElementById("warm-up-toggle");
     if (warmUpToggle) {
         warmUpToggle.onchange = () => {
@@ -62,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- CORE FUNCTIONS ---
+
+function initializeEngine() {
+    log("[SYSTEM] Engine warming up...");
+    const btn = document.getElementById('transform-video');
+    if (btn) {
+        btn.disabled = false;
+        log("✅ Button 4 Ready.");
+    }
+}
 
 function switchTab(target) {
     document.querySelectorAll(".tab-content").forEach(c => {
@@ -84,11 +90,12 @@ function switchTab(target) {
 
 async function refreshTrends() {
     const list = document.getElementById("waves-list");
+    if (!list) return;
     list.innerHTML = '<div class="loader">Scanning #MainCharacter Waves...</div>';
     log("📡 Requesting Waves...");
 
     chrome.runtime.sendMessage({ type: "GENERATE_WAVES" }, (response) => {
-        if (!response?.success) return log("🚨 API Error", true);
+        if (!response?.success) return log("🚨 API Error: " + response.error, true);
         const raw = response.data.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(response.data);
         const start = raw.indexOf('[');
         const end = raw.lastIndexOf(']') + 1;
@@ -102,6 +109,7 @@ async function refreshTrends() {
 
 function renderTrendCards(trends) {
     const list = document.getElementById("waves-list");
+    if (!list) return;
     list.innerHTML = "";
     trends.forEach(t => {
         const card = document.createElement("div");
@@ -124,20 +132,32 @@ function renderTrendCards(trends) {
 
 async function renderVault() {
     const list = document.getElementById('vault-list');
+    if (!list) return;
     const res = await chrome.storage.local.get("videoVault");
     const assets = res.videoVault || [];
-    list.innerHTML = assets.length ? "" : '<p>Vault is empty.</p>';
+    list.innerHTML = assets.length ? "" : '<p class="empty-msg">No assets in vault. Automate a wave to begin.</p>';
     assets.forEach(asset => {
         const item = document.createElement("div");
         item.className = "vault-item";
-        item.innerHTML = `<img src="${asset.thumbnail}"><button class="purge-btn" data-id="${asset.id}">DEL</button><div>@${asset.author}</div>`;
+        item.style.marginBottom = "10px";
+        item.innerHTML = `
+            <div style="position:relative; background: #111; border: 1px solid #333; padding: 5px; border-radius: 8px;">
+                <img src="${asset.thumbnail}" style="width:100%; height: auto; border-radius:4px; display: block;">
+                <div style="position:absolute; top:8px; left:8px; background:rgba(0,240,255,0.8); color:black; font-size:9px; font-weight:bold; padding:2px 5px; border-radius:2px;">${asset.status}</div>
+                <button class="purge-btn" data-id="${asset.id}" style="position:absolute; bottom:8px; right:8px; background:#ff4444; border:none; color:white; font-size:10px; cursor:pointer; padding: 2px 6px; border-radius: 4px;">DEL</button>
+                <div style="font-size:10px; color: #fff; margin-top:5px; font-weight: bold;">@${asset.author}</div>
+            </div>
+        `;
         list.appendChild(item);
     });
+
     document.querySelectorAll('.purge-btn').forEach(btn => {
         btn.onclick = async () => {
-            const updated = assets.filter(a => a.id !== btn.dataset.id);
+            const id = btn.dataset.id;
+            const res = await chrome.storage.local.get("videoVault");
+            const updated = (res.videoVault || []).filter(a => a.id !== id);
             await chrome.storage.local.set({ videoVault: updated });
-            log("[VAULT] Item Purged.");
+            log(`[VAULT] Item Purged.`);
         };
     });
 }
@@ -154,7 +174,46 @@ function shotgunHashtags() {
 
 function toggleSettings() {
     const menu = document.getElementById('settings-menu');
-    menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
+    if (menu) menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
 }
 
-// ... obfuscate/deobfuscate, saveKeys, renderKeyList, updateStatusBar, etc ...
+function saveKeys() {
+    const input = document.getElementById('key-input');
+    if (!input) return;
+    const rawText = input.value.trim();
+    if (!rawText) return;
+
+    const keys = rawText.split(/\n/).map(k => k.trim()).filter(k => k);
+    chrome.storage.local.get(["apiKeys"], async (res) => {
+        const existing = res.apiKeys || [];
+        const obfuscated = keys.map(k => ({
+            encryptedKey: btoa(k), // Simplified for now
+            isLimited: false,
+            cooldownUntil: 0
+        }));
+        await chrome.storage.local.set({ apiKeys: [...existing, ...obfuscated] });
+        input.value = "";
+        log(`[SYSTEM] Added ${keys.length} keys.`);
+    });
+}
+
+function renderKeyList() {
+    const list = document.getElementById('key-list');
+    if (!list) return;
+    chrome.storage.local.get(["apiKeys"], (res) => {
+        const keys = res.apiKeys || [];
+        list.innerHTML = `<strong>Pool: ${keys.length} Active</strong>`;
+    });
+}
+
+function updateStatusBar() {
+    chrome.storage.local.get(["apiKeys"], (res) => {
+        const el = document.getElementById("key-status");
+        if (el) el.textContent = `Keys: ${res.apiKeys?.length || 0}`;
+    });
+}
+
+function startTransformation() {
+    log("🚀 Starting WASM Transformation...");
+    chrome.runtime.sendMessage({ type: "START_TRANSFORMATION" });
+}

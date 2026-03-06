@@ -1,51 +1,60 @@
-// content.js - tikkytokky Content Bridge (Siligrave Protocol)
-let scrollInterval = null;
+// content.js - randomgirlirl Human Emulation (Siligrave Protocol)
+let scrollLoop = null;
 
-console.log("[VE] Content Bridge Active. Waiting for instructions...");
+console.log("[HUMAN] Content Bridge Active.");
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // 1. THE PING
-    if (message.type === "PING") {
-        sendResponse({ success: true, status: "READY" });
-    }
-
-    // 2. THE SCROLL KILL-SWITCH
-    if (message.type === "TOGGLE_WARM_UP") {
-        if (message.enabled) {
-            startAutoScroll();
-        } else {
-            stopAutoScroll();
-        }
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "PING") {
         sendResponse({ success: true });
     }
 
-    // 3. UI OVERLAY INJECTION (For Future Hooks)
-    if (message.type === "INJECT_HOOK") {
-        injectVisualHook(message.text);
+    if (msg.type === "TOGGLE_WARM_UP") {
+        if (msg.enabled) {
+            startHumanBrowsing();
+        } else {
+            stopHumanBrowsing();
+        }
+        sendResponse({ success: true });
     }
 });
 
-function startAutoScroll() {
-    if (scrollInterval) return;
-    console.log("[VE] Auto-scroll: ENGAGED");
-    scrollInterval = setInterval(() => {
-        const scrollAmount = Math.floor(Math.random() * 300) + 200;
-        window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-    }, 5000);
+function startHumanBrowsing() {
+    if (scrollLoop) return;
+    console.log("[HUMAN] Starting Aesthetic Browsing...");
+
+    const browse = () => {
+        const roll = Math.random();
+        let delay = 3000; // Base delay
+
+        if (roll < 0.6) {
+            // 60% Chance: Standard Scroll Down
+            const pixels = Math.floor(Math.random() * 600) + 400;
+            window.scrollBy({ top: pixels, behavior: 'smooth' });
+            console.log(`[HUMAN] Scrolled ${pixels}px`);
+            delay = Math.floor(Math.random() * 3000) + 2000;
+        }
+        else if (roll < 0.9) {
+            // 30% Chance: Linger (Watching a video)
+            console.log("[HUMAN] Watching video (Lingering)...");
+            delay = Math.floor(Math.random() * 8000) + 5000; // Wait 5-13 seconds
+        }
+        else {
+            // 10% Chance: Scroll back up (Checking previous video)
+            window.scrollBy({ top: -300, behavior: 'smooth' });
+            console.log("[HUMAN] Scrolled back up to re-watch.");
+            delay = Math.floor(Math.random() * 2000) + 1000;
+        }
+
+        scrollLoop = setTimeout(browse, delay);
+    };
+
+    browse();
 }
 
-function stopAutoScroll() {
-    if (scrollInterval) {
-        clearInterval(scrollInterval);
-        scrollInterval = null;
-        console.log("[VE] Auto-scroll: KILLED");
+function stopHumanBrowsing() {
+    if (scrollLoop) {
+        clearTimeout(scrollLoop);
+        scrollLoop = null;
+        console.log("[HUMAN] Browsing sequence halted.");
     }
-}
-
-function injectVisualHook(text) {
-    const el = document.createElement('div');
-    el.style.cssText = "position:fixed; top:20%; left:50%; transform:translateX(-50%); background:white; color:black; padding:10px; font-weight:bold; z-index:9999; border-radius:8px;";
-    el.textContent = text;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
 }

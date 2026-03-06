@@ -13,31 +13,72 @@ function log(msg, isError = false) {
     if (autoScrollEnabled) logger.scrollTop = logger.scrollHeight;
 }
 
+// --- UTILITIES ---
+function obfuscate(input) {
+    let xorResult = "";
+    for (let i = 0; i < input.length; i++) {
+        xorResult += String.fromCharCode(input.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+    }
+    return btoa(xorResult);
+}
+
+function deobfuscate(input) {
+    try {
+        const decoded = atob(input);
+        let result = "";
+        for (let i = 0; i < decoded.length; i++) {
+            result += String.fromCharCode(decoded.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+        }
+        return result;
+    } catch (e) { return "DEOBF_ERROR"; }
+}
+
+// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     log("System Booting... randomgirlirl persona loaded.");
 
-    // Binding buttons with explicit error checking
     const bind = (id, fn) => {
         const el = document.getElementById(id);
         if (el) el.onclick = fn;
-        else console.warn(`[UI] Missing Element ID: ${id}`);
     };
 
     bind('refresh-trends', refreshTrends);
     bind('shotgun-hashtags', shotgunHashtags);
-    bind('init-engine', () => log("Engine Warm-up Initialized..."));
+    bind('init-engine', initializeEngine);
     bind('transform-video', () => log("WASM Transformation Sequence Standby."));
+    bind('save-keys', saveKeys);
+
     bind('settings-gear', () => {
         const m = document.getElementById('settings-menu');
-        m.style.display = m.style.display === 'none' ? 'block' : 'none';
+        if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+        log("[UI] Settings Toggled.");
     });
+
+    // WARM-UP TOGGLE (The Scroller Kill-Switch)
+    const warmUpToggle = document.getElementById("warm-up-toggle");
+    if (warmUpToggle) {
+        warmUpToggle.onchange = () => {
+            const state = warmUpToggle.checked;
+            log(`[HUMAN] Warm-up Emulation: ${state ? 'ENABLED' : 'DISABLED'}`);
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_WARM_UP", enabled: state });
+                }
+            });
+        };
+    }
 
     document.querySelectorAll(".tab-btn").forEach(btn => {
         btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
+    // LOAD SAVED DATA
+    renderKeyList();
     renderVault();
+    updateStatusBar();
 });
+
+// --- CORE FUNCTIONS ---
 
 function switchTab(target) {
     document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
@@ -58,23 +99,18 @@ async function refreshTrends() {
             const raw = res.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             const start = raw.indexOf('[');
             const end = raw.lastIndexOf(']') + 1;
-
-            if (start === -1) {
-                log("DEBUG: " + raw.substring(0, 50), true);
-                throw new Error("No JSON block in AI response.");
-            }
-
             const trends = JSON.parse(raw.substring(start, end));
             renderTrendCards(trends);
             log(`Success: Found ${trends.length} viral leads.`);
         } catch (e) {
-            log(`Parser Error: ${e.message}`, true);
+            log(`Parser Error: Check raw AI output.`, true);
         }
     });
 }
 
 function renderTrendCards(trends) {
     const list = document.getElementById("waves-list");
+    if (!list) return;
     list.innerHTML = "";
     trends.forEach(t => {
         const card = document.createElement("div");
@@ -100,6 +136,7 @@ function renderTrendCards(trends) {
 
 async function renderVault() {
     const list = document.getElementById('vault-list');
+    if (!list) return;
     const { videoVault } = await chrome.storage.local.get("videoVault");
     const assets = videoVault || [];
     list.innerHTML = assets.length ? "" : "Vault is empty.";
@@ -111,6 +148,51 @@ async function renderVault() {
     });
 }
 
+// --- KEY MANAGEMENT (RESTORED) ---
+
+async function saveKeys() {
+    const input = document.getElementById('key-input');
+    if (!input) return;
+    const rawText = input.value.trim();
+    if (!rawText) return;
+
+    const keys = rawText.split(/\n/).map(k => k.trim()).filter(k => k);
+    chrome.storage.local.get(["apiKeys"], async (res) => {
+        const existing = res.apiKeys || [];
+        const obfuscated = keys.map(k => ({
+            encryptedKey: obfuscate(k),
+            isLimited: false,
+            cooldownUntil: 0
+        }));
+        await chrome.storage.local.set({ apiKeys: [...existing, ...obfuscated] });
+        input.value = "";
+        log(`[SYSTEM] Added ${keys.length} keys to pool.`);
+        renderKeyList();
+        updateStatusBar();
+    });
+}
+
+function renderKeyList() {
+    const list = document.getElementById('key-list');
+    if (!list) return;
+    chrome.storage.local.get(["apiKeys"], (res) => {
+        const keys = res.apiKeys || [];
+        list.innerHTML = `<strong>Active Pool: ${keys.length}</strong>`;
+        keys.forEach((k, i) => {
+            const raw = deobfuscate(k.encryptedKey);
+            const mask = raw.substring(0,4) + "****" + raw.substring(raw.length-4);
+            list.innerHTML += `<div style="font-size:9px; color:#888; margin-top:2px;">${i+1}: ${mask}</div>`;
+        });
+    });
+}
+
+function updateStatusBar() {
+    chrome.storage.local.get(["apiKeys"], (res) => {
+        const el = document.getElementById("key-status");
+        if (el) el.textContent = `Keys: ${res.apiKeys?.length || 0}`;
+    });
+}
+
 function shotgunHashtags() {
     log("Polling Gemini for Hook...");
     chrome.runtime.sendMessage({ type: "GENERATE_SALUTE_HOOK" }, (res) => {
@@ -119,4 +201,14 @@ function shotgunHashtags() {
             log(`HOOK COPIED: "${res.hook}"`);
         } else log("Hook generation failed.", true);
     });
+}
+
+function initializeEngine() {
+    log("Engine Warming Up: Injecting Human Heuristics...");
+    const transformBtn = document.getElementById('transform-video');
+    if (transformBtn) {
+        transformBtn.disabled = false;
+        transformBtn.style.opacity = "1";
+        log("✅ Button 4 UNLOCKED.");
+    }
 }

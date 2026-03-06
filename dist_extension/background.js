@@ -1,72 +1,80 @@
-// background.js - Service Worker for tikkytokky extension
+// background.js - tikkytokky Service Worker (Siligrave Protocol)
 import { GeminiClient } from './lib/GeminiClient.js';
 
 const gemini = new GeminiClient();
 
-// Force side panel to open on action click
+// Force side panel behavior
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
-// Log when a TikTok tab is detected
+// Tab Update Listener
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
     if (info.status === 'complete' && tab.url?.includes('tiktok.com')) {
-      console.log('TikTok detected, bridge active.');
-    }
- });
-
-// Manual Override: Force inject content script when extension icon is clicked
-chrome.action.onClicked.addListener((tab) => {
-    if (tab.url?.includes("tiktok.com")) {
-        chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ["content.js"]
-        }).then(() => {
-            console.log("[VE] Manual override: Content script injected.");
-        }).catch(err => console.error("[VE] Manual injection failed:", err));
+        console.log('[SYSTEM] TikTok detected. Bridge active.');
     }
 });
 
+// Message Hub
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+    // 1. WAVE GENERATION (Gemini 3 Flash)
     if (message.type === "GENERATE_WAVES") {
-        const niche = message.niche || "Main Character";
-        const prompt = "Return ONLY a raw JSON array of 3-5 objects with trendName, viralScore, and description. DO NOT include introductory text, conversational filler, or markdown formatting outside the JSON block. Example format: [{\"trendName\": \"Example\", \"viralScore\": 90, \"description\": \"Text\"}]";
+        const prompt = `Return ONLY a raw JSON array of 3-5 objects with trendName, viralScore (1-100), and description.
+        Focus on #MainCharacter and #Aesthetic niches for 2026.
+        Example: [{"trendName": "Example", "viralScore": 95, "description": "Text"}]`;
 
         gemini.generateContent(prompt)
-            .then(rawData => {
-                sendResponse({ success: true, data: rawData });
-            })
-            .catch(err => {
-                sendResponse({ success: false, error: err.message });
-            });
+            .then(rawData => sendResponse({ success: true, data: rawData }))
+            .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     }
 
+    // 2. THE VAULT SCRAPER (Append Logic)
     if (message.type === "SCRAPE_TREND_ASSETS") {
+        console.log(`[VAULT] Scoping assets for trend: ${message.trend}`);
+
+        // In a production environment, this would call a TikTok Research API or Scraper.
+        // For now, we generate high-fidelity 'Target' metadata for the engine.
         const newAssets = [
-            { id: `vid_${Date.now()}_1`, trend: message.trend, thumbnail: "https://placehold.co/100x150/050505/00F0FF?text=Asset+1", duration: 15, author: "ghost_bot", status: "QUEUED" },
-            { id: `vid_${Date.now()}_2`, trend: message.trend, thumbnail: "https://placehold.co/100x150/050505/FF00FF?text=Asset+2", duration: 30, author: "aesthetic_vibe", status: "QUEUED" }
+            {
+                id: `v_${Date.now()}_1`,
+                trend: message.trend,
+                thumbnail: `https://placehold.co/300x450/050505/00F0FF?text=${encodeURIComponent(message.trend)}+1`,
+                author: "aesthetic_ghost",
+                duration: 15,
+                status: "QUEUED"
+            },
+            {
+                id: `vid_${Date.now()}_2`,
+                trend: message.trend,
+                thumbnail: `https://placehold.co/300x450/050505/FF00FF?text=${encodeURIComponent(message.trend)}+2`,
+                author: "pixel_vault",
+                duration: 22,
+                status: "QUEUED"
+            }
         ];
 
         chrome.storage.local.get(["videoVault"], (res) => {
             const currentVault = res.videoVault || [];
-            const updatedVault = [...currentVault, ...newAssets]; // APPENDING HERE
+            const updatedVault = [...currentVault, ...newAssets]; // STRICT APPEND
 
             chrome.storage.local.set({ videoVault: updatedVault }, () => {
-                console.log(`[VAULT] Appended assets for ${message.trend}. Total: ${updatedVault.length}`);
-                sendResponse({ success: true });
+                console.log(`[VAULT] 2 Assets added. Total in storage: ${updatedVault.length}`);
+                sendResponse({ success: true, count: updatedVault.length });
             });
         });
-        return true; // Keep channel open
-    }
-
-    if (message.type === "SHOTGUN_HASHTAGS") {
-        const hashtags = "#maincharacter #pov #aesthetic #2026vibes #cinematic #lifestyle #lore #canonevent #unfiltered #corecore";
-        sendResponse({ hashtags });
-    }
-
-    if (message.type === "GENERATE_SALUTE_HOOK") {
-        gemini.generateHook()
-            .then(hook => sendResponse({ success: true, hook }))
-            .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
+    }
+
+    // 3. ENGINE INITIALIZATION
+    if (message.type === "START_TRANSFORMATION") {
+        console.log("[ENGINE] Bitstream Randomization sequence initiated.");
+        // This will eventually bridge to the WASM/Hybrid Engine for frame-by-frame FX
+        sendResponse({ success: true });
+    }
+
+    // 4. UTILS
+    if (message.type === "SHOTGUN_HASHTAGS") {
+        const hashtags = "#maincharacter #aesthetic #lore #pov #2026vibes #cinematic #lifestyle";
+        sendResponse({ hashtags });
     }
 });

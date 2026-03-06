@@ -55,6 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     bind('save-keys', saveKeys);
     bind('human-comment', executeHumanComment);
 
+    // NEW: Binding the Algorithm Training Button
+    bind('train-fyp', executeAlgorithmTraining);
+
     bind('settings-gear', () => {
         const m = document.getElementById('settings-menu');
         if (m) m.style.display = (m.style.display === 'none' || m.style.display === '') ? 'block' : 'none';
@@ -240,6 +243,16 @@ function executeHumanComment() {
             chrome.runtime.sendMessage({ type: "EXECUTE_TYPO_TYPING", text: res.hook });
         } else {
              log(`[HUMAN_BRIDGE_CRASH] Could not generate comment text.`, true);
+        }
+    });
+}
+
+// NEW: Tells the content script to execute the search
+function executeAlgorithmTraining() {
+    log("[HUMAN_BRIDGE] Initializing FYP Algorithm Training sequence...");
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: "TRAIN_FYP_ALGORITHM" });
         }
     });
 }

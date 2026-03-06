@@ -6,7 +6,6 @@
     <title>tikkytokky sidePanel</title>
     <link rel="stylesheet" href="sidepanel.css">
     <style>
-        /* Fix for the "Hidden" Tabs - ensuring they take up full width */
         .tabs {
             display: flex;
             width: 100%;
@@ -21,7 +20,6 @@
             margin: 0 2px;
             white-space: nowrap;
         }
-        /* Settings Overlay */
         #settings-menu {
             display: none;
             background: #111;
@@ -79,13 +77,12 @@
     </nav>
 
     <main class="content-area" style="padding: 15px;">
-
         <section id="waves" class="tab-content active">
             <button id="refresh-trends" class="btn-1">1 - REFRESH WAVES</button>
 
             <div class="glass-card" style="margin-top:15px; padding:10px; border:1px solid #333; border-radius:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:11px;">Ghost Scroller</span>
+                    <span style="font-size:11px;">Ghost Scroller (FYP)</span>
                     <input type="checkbox" id="warm-up-toggle">
                 </div>
             </div>
@@ -96,13 +93,13 @@
         </section>
 
         <section id="vault" class="tab-content" style="display:none;">
-            <div id="vault-list" class="vault-grid">
-            </div>
+            <div id="vault-list" class="vault-grid"></div>
         </section>
 
         <section id="social" class="tab-content" style="display:none;">
             <button id="shotgun-hashtags" class="btn-2">2 - SHOTGUN HOOK</button>
             <button id="human-comment" class="btn-2" style="margin-top:10px;">5 - HUMAN COMMENT</button>
+            <button id="train-fyp" class="btn-1" style="margin-top:10px; background:#e83e8c !important;">6 - TRAIN ALGORITHM</button>
         </section>
 
         <section id="transform" class="tab-content" style="display:none;">

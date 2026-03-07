@@ -1,9 +1,8 @@
-// lib/GeminiClient.js - Logic for Gemini API interactions
+// lib/GeminiClient.js - Logic for Gemini API interactions (Siligrave Protocol)
 
 export class GeminiClient {
     constructor(xorKey = "tikkytokky_secret_key") {
         this.xorKey = xorKey;
-        this.currentIndex = 0;
     }
 
     deobfuscate(input) {
@@ -15,50 +14,25 @@ export class GeminiClient {
         return result;
     }
 
-    obfuscate(input) {
-        let xorResult = "";
-        for (let i = 0; i < input.length; i++) {
-            xorResult += String.fromCharCode(input.charCodeAt(i) ^ this.xorKey.charCodeAt(i % this.xorKey.length));
-        }
-        return btoa(xorResult);
-    }
-
-    async getNextKey() {
-        const { apiKeys = [] } = await chrome.storage.local.get("apiKeys");
-        const now = Date.now();
-        const availableKeys = apiKeys.filter(k => !k.isLimited || now > k.cooldownUntil);
-
-        if (availableKeys.length === 0) return null;
-        if (this.currentIndex >= availableKeys.length) this.currentIndex = 0;
-
-        const selectedKey = availableKeys[this.currentIndex];
-        this.currentIndex = (this.currentIndex + 1) % availableKeys.length;
-
-        const rawKey = this.deobfuscate(selectedKey.encryptedKey);
-        console.log(`[VE] Using key: ${rawKey.substring(0, 4)}****`);
-        return rawKey;
-    }
-
-    async markKeyAsLimited(key) {
-        const { apiKeys = [] } = await chrome.storage.local.get("apiKeys");
-        const encrypted = this.obfuscate(key);
-        const updatedKeys = apiKeys.map(k => {
-            if (k.encryptedKey === encrypted) {
-                return { ...k, isLimited: true, cooldownUntil: Date.now() + 60000 };
-            }
-            return k;
-        });
-        await chrome.storage.local.set({ apiKeys: updatedKeys });
-    }
-
     /**
-     * UPDATED: Key-Hopping logic for "High Demand" spikes.
+     * UPDATED: Integrated generationConfig for JSON Enforcement.
+     * Forces the 3.1-Flash-Lite model to return strictly parseable payloads.
      */
-    async generateContent(prompt) {
-        const apiKey = await this.getNextKey();
-        if (!apiKey) throw new Error("All keys are currently exhausted or limited.");
+    async generateContent(prompt, overrideKeyEncrypted = null) {
+        let apiKey;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+        if (overrideKeyEncrypted) {
+            apiKey = this.deobfuscate(overrideKeyEncrypted);
+        } else {
+            const { apiKeys = [] } = await chrome.storage.local.get("apiKeys");
+            const now = Date.now();
+            const available = apiKeys.filter(k => !k.isLimited || now > (k.cooldownUntil || 0));
+            if (available.length === 0) throw new Error("Key Pool Exhausted.");
+            apiKey = this.deobfuscate(available[0].encryptedKey);
+        }
+
+        // Using 3.1-Flash-Lite-Preview for maximum RPD (Requests Per Day)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
 
         try {
             const response = await fetch(url, {
@@ -66,52 +40,48 @@ export class GeminiClient {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
+                    // ADDED: Strict JSON output enforcement to kill "Parser failure" bugs
                     generationConfig: {
-                        thinkingConfig: { includeThoughts: true, thinkingLevel: "low" }
+                        response_mime_type: "application/json"
                     }
                 })
             });
 
+            // Catch 401 (Invalid) and 429 (Rate Limit) before parsing JSON
+            if (response.status === 401) throw new Error("INVALID_KEY");
+            if (response.status === 429) throw new Error("RATE_LIMIT_HIT");
+
             const jsonResponse = await response.json();
 
-            // CHECK FOR HIGH DEMAND OR RATE LIMITS
-            if (response.status === 429 ||
-               (jsonResponse.error && jsonResponse.error.message.includes("high demand"))) {
-
-                console.warn(`[VE] Key ${apiKey.substring(0,4)} hit a spike. Swapping...`);
-                await this.markKeyAsLimited(apiKey);
-
-                // RECURSION: Try again with the next key in the pool
-                return this.generateContent(prompt);
-            }
-
             if (jsonResponse.error) {
+                const status = jsonResponse.error.status;
+                const msg = jsonResponse.error.message.toLowerCase();
+
+                // 2026 Quota/Demand Error Detection
+                if (status === "RESOURCE_EXHAUSTED" || msg.includes("quota") || msg.includes("limit") || msg.includes("demand")) {
+                    throw new Error("RATE_LIMIT_HIT");
+                }
+
+                if (msg.includes("api key") || msg.includes("invalid")) {
+                    throw new Error("INVALID_KEY");
+                }
+
                 throw new Error(jsonResponse.error.message);
             }
 
             return jsonResponse;
 
         } catch (err) {
-            // If it's the high demand error we just caught, let it bubble for the next key
-            if (err.message.includes("high demand")) {
-                return this.generateContent(prompt);
-            }
-            throw err;
+            console.error(`[VE_CLIENT] ${err.message}`);
+            throw err; // Signal to background.js to rotate
         }
     }
 
-    async generateTrends() {
-        const prompt = `Analyze high-velocity TikTok trends for the #MainCharacter niche.
-        Return raw JSON array of 3-5 objects with trendName, viralScore (1-100), and description.
-        Ensure hooks are relatable and aesthetic.`;
-        return this.generateContent(prompt);
-    }
-
-    async generateHook() {
-        const prompt = `Generate a relatable, aesthetic hook for the #MainCharacter niche.
-        Tone: Respectful Admiration.
-        Focus: The 'Vibe' (lighting, mood, setting) rather than the individual.
-        Format: One short sentence.`;
+    async generateHook(context) {
+        // UPGRADED: Prompt tuned for Roblox Slop/Brainrot niche
+        const prompt = `Watching high-velocity Roblox/Minecraft parkour slop: "${context}".
+        Write ONE short, engaging brainrot comment (maximalist zoomer humor, unfiltered lore).
+        Return ONLY raw JSON: {"hook": "..."}`;
         return this.generateContent(prompt);
     }
 }

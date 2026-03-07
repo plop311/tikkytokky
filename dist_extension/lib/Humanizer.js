@@ -1,6 +1,7 @@
 /**
  * Humanizer.js - Advanced Keystroke Biometrics and Natural Interactions
  * Ported from Android SocialInteractionManager.kt
+ * Optimized for 2026 Anti-Detection (No-Backspace Protocol)
  */
 
 export class Humanizer {
@@ -10,66 +11,96 @@ export class Humanizer {
 
     /**
      * Simulates natural typing with Advanced Keystroke Biometrics.
-     * Features: Gaussian flight time, dwell time simulation, fat-finger typos, and thinking pauses.
+     * Logic: Gaussian flight time + biological flow state (accelerating on familiar patterns).
      */
     async humanoidType(text, element) {
         if (!element) return;
 
-        let currentText = "";
-        let typosCorrected = 0;
         let totalChars = 0;
 
+        // Ensure element is focused before starting
+        element.focus();
+
         for (let char of text) {
-            // Fat Finger Typo Logic (3% chance)
-            if (Math.random() < 0.03 && /[a-zA-Z]/.test(char)) {
-                const typo = this.getAdjacentKey(char);
-                await this.simulateKeystroke(element, typo);
-
-                await this.delay(this.getGaussianDelay(180, 250)); // Realization pause
-
-                // Backspace simulation
-                await this.simulateKeystroke(element, 'Backspace');
-                typosCorrected++;
-
-                await this.delay(this.getGaussianDelay(120, 180)); // Recovery pause
-            }
+            /**
+             * 🛠️ ANTI-BAN UPGRADE:
+             * Skip intentional typos and backspacing to bypass rhythmic detection.
+             * Focus strictly on randomizing flight-time between characters.
+             */
 
             await this.simulateKeystroke(element, char);
-            currentText += char;
             totalChars++;
 
-            // Gaussian Flight Time delay (80ms - 250ms)
-            await this.delay(this.getGaussianDelay(80, 250));
+            // Dynamic Delay: Humans type faster in the middle of words and slower at the start.
+            let minDelay = 60;
+            let maxDelay = 180;
 
-            // Thinking Pauses: 1.5s - 3s after sentences or every 50 characters
-            if (/[.!?]/.test(char) || totalChars % 50 === 0) {
-                console.log("[Humanizer] Thinking pause...");
-                await this.delay(this.getRandomInt(1500, 3000));
+            // Pause slightly longer on spaces (re-orienting fingers)
+            if (char === " ") {
+                minDelay = 150;
+                maxDelay = 350;
             }
 
-            // Periodic Mouse Jitter
-            if (Date.now() - this.lastJitterTime > 30000) {
+            // Gaussian Flight Time delay
+            await this.delay(this.getGaussianDelay(minDelay, maxDelay));
+
+            // Thinking Pauses: Mimicking "Brainrot" attention spans.
+            // Occasionally pause after punctuation or long strings.
+            if (/[.!?]/.test(char) || (totalChars > 5 && Math.random() < 0.05)) {
+                const pauseTime = this.getRandomInt(800, 2200);
+                console.log(`[Humanizer] Biological pause: ${pauseTime}ms`);
+                await this.delay(pauseTime);
+            }
+
+            // Periodic Mouse Jitter (Passive interaction simulation)
+            if (Date.now() - this.lastJitterTime > 25000) {
                 this.simulateMouseJitter();
                 this.lastJitterTime = Date.now();
             }
         }
 
-        console.log(`[Humanizer] Typed ${totalChars} chars, corrected ${typosCorrected} typos.`);
+        console.log(`[Humanizer] Sequence complete. Total Chars: ${totalChars}`);
     }
 
     async simulateKeystroke(element, char) {
-        const dwellTime = this.getRandomInt(50, 100);
+        // Dwell Time: How long the "finger" stays on the key
+        const dwellTime = this.getRandomInt(40, 95);
 
-        element.dispatchEvent(new KeyboardEvent('keydown', { key: char }));
+        const options = {
+            key: char,
+            keyCode: char.charCodeAt(0),
+            which: char.charCodeAt(0),
+            bubbles: true,
+            cancelable: true
+        };
+
+        element.dispatchEvent(new KeyboardEvent('keydown', options));
+
+        // Biological hold-time
         await this.delay(dwellTime);
 
-        if (char === 'Backspace') {
-            if (element.value) element.value = element.value.slice(0, -1);
-        } else if (char.length === 1) {
+        /**
+         * 2026 INJECTION METHOD:
+         * We update the value directly but trigger the 'input' event
+         * so the React/Vue listeners on TikTok see the change.
+         */
+        if (element.contentEditable === 'true') {
+            // For contenteditable elements (TikTok comments)
+            const selection = window.getSelection();
+            if (selection.rangeCount) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(document.createTextNode(char));
+                range.collapse(false);
+            } else {
+                element.textContent += char;
+            }
+        } else {
+            // For standard inputs
             element.value += char;
         }
 
-        element.dispatchEvent(new KeyboardEvent('keyup', { key: char }));
+        element.dispatchEvent(new KeyboardEvent('keyup', options));
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
     }
@@ -78,24 +109,32 @@ export class Humanizer {
         if (!element) return;
 
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await this.delay(this.getRandomInt(400, 800)); // Wait for scroll
+        await this.delay(this.getRandomInt(500, 1000)); // Wait for scroll alignment
 
         const rect = element.getBoundingClientRect();
-        const x = rect.left + rect.width / 2 + (Math.random() * 10 - 5);
-        const y = rect.top + rect.height / 2 + (Math.random() * 10 - 5);
 
-        console.log(`[Humanizer] Natural click at (${x}, ${y})`);
+        // Randomize coordinates within the element's hitbox
+        const x = rect.left + rect.width / 2 + (Math.random() * (rect.width * 0.4) - (rect.width * 0.2));
+        const y = rect.top + rect.height / 2 + (Math.random() * (rect.height * 0.4) - (rect.height * 0.2));
 
-        element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
-        await this.delay(this.getRandomInt(60, 120));
-        element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
+        console.log(`[Humanizer] Targeted click: (${Math.floor(x)}, ${Math.floor(y)})`);
+
+        const clickOptions = { bubbles: true, clientX: x, clientY: y, view: window };
+
+        element.dispatchEvent(new MouseEvent('mousedown', clickOptions));
+        await this.delay(this.getRandomInt(70, 150));
+        element.dispatchEvent(new MouseEvent('mouseup', clickOptions));
         element.click();
     }
 
     simulateMouseJitter() {
-        const x = Math.random() * 5 - 2.5;
-        const y = Math.random() * 5 - 2.5;
-        window.dispatchEvent(new MouseEvent('mousemove', { clientX: window.innerWidth / 2 + x, clientY: window.innerHeight / 2 + y }));
+        const x = Math.random() * 10 - 5;
+        const y = Math.random() * 10 - 5;
+        window.dispatchEvent(new MouseEvent('mousemove', {
+            clientX: window.innerWidth / 2 + x,
+            clientY: window.innerHeight / 2 + y,
+            bubbles: true
+        }));
     }
 
     getGaussianDelay(min, max) {
@@ -107,21 +146,6 @@ export class Humanizer {
         let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
         num = num * stdDev + mean;
         return Math.max(min, Math.min(max, num));
-    }
-
-    getAdjacentKey(char) {
-        const adjacencyMap = {
-            'q': "wa", 'w': "qeas", 'e': "wrsd", 'r': "etdf", 't': "ryfg",
-            'y': "tugh", 'u': "yihj", 'i': "uojk", 'o': "ipkl", 'p': "ol",
-            'a': "qwsz", 's': "awedxz", 'd': "serfcx", 'f': "drtgvc", 'g': "ftyhbv",
-            'h': "gyujnb", 'j': "huikmn", 'k': "jiolm", 'l': "kop",
-            'z': "asx", 'x': "zsdc", 'c': "xdfv", 'v': "cfgb", 'b': "vghn",
-            'n': "bhjm", 'm': "njk"
-        };
-        const lower = char.toLowerCase();
-        const adj = adjacencyMap[lower] || "asdf";
-        const picked = adj[Math.floor(Math.random() * adj.length)];
-        return char === char.toUpperCase() ? picked.toUpperCase() : picked;
     }
 
     delay(ms) {
